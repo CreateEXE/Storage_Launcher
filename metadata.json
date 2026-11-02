@@ -1,0 +1,6 @@
+{
+  "name": "Savage Storage",
+  "description": "Savage Storage by Oni Song — Minimalist phone-optimized PC desktop, storage manager, VRM 3D avatar studio, and customizable node window system.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
