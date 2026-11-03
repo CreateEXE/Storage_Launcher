@@ -22,6 +22,7 @@ import { WindowTaskbar } from './components/WindowTaskbar';
 import { NodeLinkOverlay } from './components/NodeLinkOverlay';
 import { SettingsModal } from './components/SettingsModal';
 import { ContextMenu, ContextMenuState } from './components/ContextMenu';
+import { ToastNotificationStack } from './components/ToastNotificationStack';
 import { FileManagerService } from './services/fileManager';
 import { FileTypeDetector } from './services/fileInspector';
 import { FileItem } from './types';
@@ -52,6 +53,27 @@ export default function App() {
       localStorage.setItem('savage_desktop_customization', JSON.stringify(updated));
     } catch {}
   };
+
+  // Global Runtime Exception & Promise Rejection Safeguard
+  useEffect(() => {
+    const handleGlobalError = (event: ErrorEvent) => {
+      console.warn('Trapped global runtime JS error:', event.error || event.message);
+      event.preventDefault();
+    };
+
+    const handleGlobalRejection = (event: PromiseRejectionEvent) => {
+      console.warn('Trapped global promise rejection:', event.reason);
+      event.preventDefault();
+    };
+
+    window.addEventListener('error', handleGlobalError);
+    window.addEventListener('unhandledrejection', handleGlobalRejection);
+
+    return () => {
+      window.removeEventListener('error', handleGlobalError);
+      window.removeEventListener('unhandledrejection', handleGlobalRejection);
+    };
+  }, []);
 
   // Sessions & Orientation
   const [sessionTabs, setSessionTabs] = useState<string[]>(['Main Workspace']);
@@ -835,6 +857,9 @@ export default function App() {
         onFocusWindow={focusWindow}
         showTerminal={isDeveloperModeUnlocked}
       />
+
+      {/* Floating Non-Blocking Toast & Transfer Progress Notifications */}
+      <ToastNotificationStack />
     </div>
   );
 }

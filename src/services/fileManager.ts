@@ -1,5 +1,6 @@
 import { FileItem, TreeNode } from '../types';
 import { INITIAL_FILES, FOLDER_TREE } from '../data/mockData';
+import { NotificationService } from './notificationService';
 
 const STORAGE_KEY = 'termux_gui_filesystem_v2';
 const TREE_STORAGE_KEY = 'termux_gui_foldertree_v2';
@@ -17,6 +18,18 @@ declare global {
       deletePath: (filePath: string) => boolean;
       createDirectory: (dirPath: string) => boolean;
     };
+    SafStorage?: {
+      hasPersistedPermission: () => boolean;
+      getPersistedUriString: () => string;
+      openDocumentTree: () => void;
+      listSafDirectory: (uriOrPath: string) => string;
+      readSafFileAsString: (fileUriStr: string) => string;
+      readSafFileAsBase64: (fileUriStr: string) => string;
+      writeSafFile: (parentUriOrPath: string, fileName: string, content: string, isBase64: boolean) => string;
+      createSafDirectory: (parentUriOrPath: string, dirName: string) => string;
+      deleteSafDocument: (documentUriStr: string) => boolean;
+    };
+    onSafPermissionGranted?: (treeUri: string) => void;
   }
 }
 
@@ -38,11 +51,25 @@ export class FileManagerService {
   private maxHistory: number = 30;
 
   private isNativeStorageAvailable: boolean = false;
+  private isSafAvailable: boolean = false;
   private currentNativeDirPath: string = '';
 
   private constructor() {
     this.isNativeStorageAvailable = typeof window !== 'undefined' && !!window.AndroidStorage;
-    if (this.isNativeStorageAvailable && window.AndroidStorage) {
+    this.isSafAvailable = typeof window !== 'undefined' && !!window.SafStorage;
+
+    if (typeof window !== 'undefined') {
+      window.onSafPermissionGranted = (treeUri: string) => {
+        console.log('SAF Storage Permission Granted:', treeUri);
+        this.currentNativeDirPath = treeUri;
+        this.syncFromNativeStorage(treeUri);
+      };
+    }
+
+    if (this.isSafActive() && window.SafStorage) {
+      this.currentNativeDirPath = window.SafStorage.getPersistedUriString();
+      this.syncFromNativeStorage(this.currentNativeDirPath);
+    } else if (this.isNativeStorageAvailable && window.AndroidStorage) {
       this.currentNativeDirPath = window.AndroidStorage.getStorageRootPath();
       this.syncFromNativeStorage(this.currentNativeDirPath);
     } else {
@@ -58,10 +85,25 @@ export class FileManagerService {
   }
 
   public isNativeDeviceStorage(): boolean {
-    return this.isNativeStorageAvailable;
+    return this.isNativeStorageAvailable || this.isSafActive();
+  }
+
+  public isSafActive(): boolean {
+    return typeof window !== 'undefined' && !!window.SafStorage && window.SafStorage.hasPersistedPermission();
+  }
+
+  public openSafPicker(): void {
+    if (typeof window !== 'undefined' && window.SafStorage) {
+      window.SafStorage.openDocumentTree();
+    } else if (this.isNativeStorageAvailable && window.AndroidStorage) {
+      window.AndroidStorage.requestStoragePermission();
+    }
   }
 
   public getNativeRootPath(): string {
+    if (this.isSafActive() && window.SafStorage) {
+      return window.SafStorage.getPersistedUriString();
+    }
     if (this.isNativeStorageAvailable && window.AndroidStorage) {
       return window.AndroidStorage.getStorageRootPath();
     }
@@ -69,48 +111,71 @@ export class FileManagerService {
   }
 
   public requestNativePermission(): void {
-    if (this.isNativeStorageAvailable && window.AndroidStorage) {
-      window.AndroidStorage.requestStoragePermission();
-    }
+    this.openSafPicker();
   }
 
   public syncFromNativeStorage(dirPath?: string): FileItem[] {
-    if (!this.isNativeStorageAvailable || !window.AndroidStorage) {
-      return this.files;
-    }
-
     const targetDir = dirPath || this.currentNativeDirPath || this.getNativeRootPath();
     this.currentNativeDirPath = targetDir;
 
-    try {
-      const rawJson = window.AndroidStorage.listDirectory(targetDir);
-      const parsed = JSON.parse(rawJson || '[]');
+    // 1. SAF Storage Access Framework Path
+    if (this.isSafActive() && window.SafStorage) {
+      try {
+        const rawJson = window.SafStorage.listSafDirectory(targetDir);
+        const parsed = JSON.parse(rawJson || '[]');
 
-      const nativeFiles: FileItem[] = parsed.map((item: any) => ({
-        id: `native_${item.path.replace(/[^a-zA-Z0-9]/g, '_')}`,
-        name: item.name,
-        size: item.isFolder ? '--' : this.formatBytes(item.sizeBytes || 0),
-        sizeBytes: item.sizeBytes || 0,
-        type: item.type || (item.isFolder ? 'Folder' : 'File'),
-        modified: item.modified || this.formatDate(new Date()),
-        isFolder: item.isFolder,
-        path: item.path,
-        created: item.modified || this.formatDate(new Date())
-      }));
+        const safFiles: FileItem[] = parsed.map((item: any) => ({
+          id: `saf_${item.uri.replace(/[^a-zA-Z0-9]/g, '_')}`,
+          name: item.name,
+          size: item.isFolder ? '--' : this.formatBytes(item.sizeBytes || 0),
+          sizeBytes: item.sizeBytes || 0,
+          type: item.type || (item.isFolder ? 'Folder' : 'File'),
+          modified: item.modified || this.formatDate(new Date()),
+          isFolder: item.isFolder,
+          path: item.uri,
+          created: item.modified || this.formatDate(new Date())
+        }));
 
-      // Merge native files into files cache
-      this.files = nativeFiles;
-      this.buildTreeFromNativePath(targetDir, nativeFiles);
-      this.notify();
-      return nativeFiles;
-    } catch (e) {
-      console.warn('Failed to query native device storage:', e);
-      return this.files;
+        this.files = safFiles;
+        this.buildTreeFromNativePath(targetDir, safFiles);
+        this.notify();
+        return safFiles;
+      } catch (e) {
+        console.warn('SAF storage sync exception:', e);
+      }
     }
+
+    // 2. Direct File Bridge Path
+    if (this.isNativeStorageAvailable && window.AndroidStorage) {
+      try {
+        const rawJson = window.AndroidStorage.listDirectory(targetDir);
+        const parsed = JSON.parse(rawJson || '[]');
+
+        const nativeFiles: FileItem[] = parsed.map((item: any) => ({
+          id: `native_${item.path.replace(/[^a-zA-Z0-9]/g, '_')}`,
+          name: item.name,
+          size: item.isFolder ? '--' : this.formatBytes(item.sizeBytes || 0),
+          sizeBytes: item.sizeBytes || 0,
+          type: item.type || (item.isFolder ? 'Folder' : 'File'),
+          modified: item.modified || this.formatDate(new Date()),
+          isFolder: item.isFolder,
+          path: item.path,
+          created: item.modified || this.formatDate(new Date())
+        }));
+
+        this.files = nativeFiles;
+        this.buildTreeFromNativePath(targetDir, nativeFiles);
+        this.notify();
+        return nativeFiles;
+      } catch (e) {
+        console.warn('Native storage sync exception:', e);
+      }
+    }
+
+    return this.files;
   }
 
   private buildTreeFromNativePath(currentDir: string, currentFiles: FileItem[]): void {
-    const rootPath = this.getNativeRootPath();
     const childrenNodes: TreeNode[] = currentFiles
       .filter((f) => f.isFolder)
       .map((f) => ({
@@ -120,7 +185,7 @@ export class FileManagerService {
       }));
 
     this.tree = {
-      name: currentDir === rootPath ? 'Device Storage (/sdcard)' : currentDir.split('/').pop() || 'Storage',
+      name: this.isSafActive() ? 'SAF Storage Tree (/sdcard)' : 'Device Storage (/sdcard)',
       path: currentDir,
       isOpen: true,
       children: childrenNodes
@@ -154,7 +219,7 @@ export class FileManagerService {
 
   private save(): void {
     try {
-      if (!this.isNativeStorageAvailable) {
+      if (!this.isNativeDeviceStorage()) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(this.files));
         localStorage.setItem(TREE_STORAGE_KEY, JSON.stringify(this.tree));
       }
@@ -233,7 +298,7 @@ export class FileManagerService {
   }
 
   public getFiles(): FileItem[] {
-    if (this.isNativeStorageAvailable) {
+    if (this.isNativeDeviceStorage()) {
       return this.syncFromNativeStorage();
     }
     return [...this.files];
@@ -244,7 +309,7 @@ export class FileManagerService {
   }
 
   public getFilesByPath(dirPath: string): FileItem[] {
-    if (this.isNativeStorageAvailable) {
+    if (this.isNativeDeviceStorage()) {
       return this.syncFromNativeStorage(dirPath);
     }
 
@@ -256,13 +321,46 @@ export class FileManagerService {
   }
 
   public readFileContent(filePath: string, isBinary: boolean = false): string {
+    if (this.isSafActive() && window.SafStorage) {
+      if (isBinary) {
+        const base64 = window.SafStorage.readSafFileAsBase64(filePath);
+        if (!base64) return '';
+        try {
+          const byteCharacters = atob(base64);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: 'application/octet-stream' });
+          return URL.createObjectURL(blob);
+        } catch {
+          return '';
+        }
+      }
+      return window.SafStorage.readSafFileAsString(filePath);
+    }
+
     if (this.isNativeStorageAvailable && window.AndroidStorage) {
       if (isBinary) {
         const base64 = window.AndroidStorage.readFileAsBase64(filePath);
-        return base64 ? `data:application/octet-stream;base64,${base64}` : '';
+        if (!base64) return '';
+        try {
+          const byteCharacters = atob(base64);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: 'application/octet-stream' });
+          return URL.createObjectURL(blob);
+        } catch {
+          return '';
+        }
       }
       return window.AndroidStorage.readFileAsString(filePath);
     }
+
     const item = this.files.find((f) => f.path === filePath);
     return item?.content || '';
   }
@@ -279,7 +377,11 @@ export class FileManagerService {
     const path = `${cleanParent}/${name}`;
     const sizeBytes = new Blob([content]).size;
 
-    if (this.isNativeStorageAvailable && window.AndroidStorage) {
+    if (this.isSafActive() && window.SafStorage) {
+      const isBase64 = content.startsWith('data:') && content.includes(';base64,');
+      const createdUri = window.SafStorage.writeSafFile(cleanParent, name, content, isBase64);
+      this.syncFromNativeStorage(cleanParent);
+    } else if (this.isNativeStorageAvailable && window.AndroidStorage) {
       const isBase64 = content.startsWith('data:') && content.includes(';base64,');
       window.AndroidStorage.writeFile(path, content, isBase64);
       this.syncFromNativeStorage(cleanParent);
@@ -315,7 +417,10 @@ export class FileManagerService {
     const cleanParent = parentPath.replace(/\/+$/, '');
     const path = `${cleanParent}/${folderName}`;
 
-    if (this.isNativeStorageAvailable && window.AndroidStorage) {
+    if (this.isSafActive() && window.SafStorage) {
+      window.SafStorage.createSafDirectory(cleanParent, folderName);
+      this.syncFromNativeStorage(cleanParent);
+    } else if (this.isNativeStorageAvailable && window.AndroidStorage) {
       window.AndroidStorage.createDirectory(path);
       this.syncFromNativeStorage(cleanParent);
     }
@@ -347,6 +452,13 @@ export class FileManagerService {
       this.pushHistory(`Deleted '${item.name}'`);
     }
 
+    if (this.isSafActive() && window.SafStorage) {
+      window.SafStorage.deleteSafDocument(path);
+      const parentDir = path.substring(0, path.lastIndexOf('/')) || this.getNativeRootPath();
+      this.syncFromNativeStorage(parentDir);
+      return true;
+    }
+
     if (this.isNativeStorageAvailable && window.AndroidStorage) {
       window.AndroidStorage.deletePath(path);
       const parentDir = path.substring(0, path.lastIndexOf('/'));
@@ -370,31 +482,14 @@ export class FileManagerService {
     const parent = oldPath.substring(0, oldPath.lastIndexOf('/'));
     const newPath = `${parent}/${newName}`;
 
-    if (this.isNativeStorageAvailable && window.AndroidStorage) {
-      // For native device storage, read old content & write to new path then delete old
-      const isBinary = item.type === 'VRM' || item.type === 'glTF' || item.type === 'Image';
-      const content = this.readFileContent(oldPath, isBinary);
-      if (content) {
-        window.AndroidStorage.writeFile(newPath, content, isBinary);
-        window.AndroidStorage.deletePath(oldPath);
-        this.syncFromNativeStorage(parent);
-        return true;
-      }
+    const isBinary = item.type === 'VRM' || item.type === 'glTF' || item.type === 'Image';
+    const content = this.readFileContent(oldPath, isBinary);
+    if (content) {
+      this.createFile(parent, newName, item.type, content);
+      this.deleteItem(oldPath);
+      return true;
     }
 
-    item.name = newName;
-    item.path = newPath;
-    item.modified = this.formatDate(new Date());
-
-    if (item.isFolder) {
-      this.files.forEach((f) => {
-        if (f.path.startsWith(`${oldPath}/`)) {
-          f.path = f.path.replace(oldPath, newPath);
-        }
-      });
-    }
-
-    this.save();
     return true;
   }
 
@@ -412,6 +507,9 @@ export class FileManagerService {
   }
 
   public async uploadFile(fileObj: File, targetDir: string): Promise<FileItem> {
+    const notif = NotificationService.getInstance();
+    const transferId = notif.startTransfer(fileObj.name, fileObj.size);
+
     const cleanParent = targetDir.replace(/\/+$/, '');
     const isBinary =
       fileObj.name.endsWith('.vrm') ||
@@ -422,26 +520,42 @@ export class FileManagerService {
       fileObj.name.endsWith('.jpg');
 
     let content = '';
-    if (isBinary) {
-      content = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(fileObj);
-      });
-    } else {
-      content = await fileObj.text();
+    try {
+      if (isBinary) {
+        content = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onprogress = (e) => {
+            if (e.lengthComputable) {
+              notif.updateTransferProgress(transferId, e.loaded);
+            }
+          };
+          reader.onload = () => {
+            notif.updateTransferProgress(transferId, fileObj.size);
+            resolve(reader.result as string);
+          };
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(fileObj);
+        });
+      } else {
+        content = await fileObj.text();
+        notif.updateTransferProgress(transferId, fileObj.size);
+      }
+
+      let type: FileItem['type'] = 'Text';
+      if (fileObj.name.endsWith('.vrm')) type = 'VRM';
+      else if (fileObj.name.endsWith('.glb') || fileObj.name.endsWith('.gltf')) type = 'glTF';
+      else if (fileObj.name.endsWith('.json')) type = 'JSON';
+      else if (fileObj.name.endsWith('.cpp') || fileObj.name.endsWith('.h')) type = 'C++ Source';
+      else if (fileObj.name.endsWith('.sh')) type = 'Shell Script';
+      else if (fileObj.name.endsWith('.md')) type = 'Markdown';
+
+      const fileItem = this.createFile(cleanParent, fileObj.name, type, content);
+      notif.finishTransfer(transferId, true);
+      return fileItem;
+    } catch (err: any) {
+      notif.finishTransfer(transferId, false, err?.message || 'Upload error');
+      throw err;
     }
-
-    let type: FileItem['type'] = 'Text';
-    if (fileObj.name.endsWith('.vrm')) type = 'VRM';
-    else if (fileObj.name.endsWith('.glb') || fileObj.name.endsWith('.gltf')) type = 'glTF';
-    else if (fileObj.name.endsWith('.json')) type = 'JSON';
-    else if (fileObj.name.endsWith('.cpp') || fileObj.name.endsWith('.h')) type = 'C++ Source';
-    else if (fileObj.name.endsWith('.sh')) type = 'Shell Script';
-    else if (fileObj.name.endsWith('.md')) type = 'Markdown';
-
-    return this.createFile(cleanParent, fileObj.name, type, content);
   }
 
   private addNodeToTree(node: TreeNode, parentPath: string, name: string, path: string): boolean {

@@ -44,6 +44,7 @@ public class MainActivity extends AppCompatActivity {
 
     private WebView webView;
     private ValueCallback<Uri[]> uploadMessage;
+    private SafStorageBridge safStorageBridge;
 
     public class AndroidStorageBridge {
 
@@ -285,8 +286,10 @@ public class MainActivity extends AppCompatActivity {
                 settings.setSafeBrowsingEnabled(false);
             }
 
-            // Expose Native Android Storage Javascript Interface
+            // Expose Native Android Storage & SAF Kotlin Bridges
+            safStorageBridge = new SafStorageBridge(this, webView);
             webView.addJavascriptInterface(new AndroidStorageBridge(), "AndroidStorage");
+            webView.addJavascriptInterface(safStorageBridge, "SafStorage");
 
             webView.setWebViewClient(new WebViewClient() {
                 @Override
@@ -354,6 +357,11 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+
+        if (safStorageBridge != null && safStorageBridge.handleActivityResult(requestCode, resultCode, data)) {
+            return;
+        }
+
         if (requestCode == FILECHOOSER_RESULTCODE) {
             if (uploadMessage == null) return;
             Uri[] results = null;

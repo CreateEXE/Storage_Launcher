@@ -857,6 +857,25 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
     const resizeObserver = new ResizeObserver(handleResize);
     resizeObserver.observe(container);
 
+    const canvas = renderer.domElement;
+    const handleContextLost = (e: Event) => {
+      e.preventDefault();
+      console.warn('WebGL Context Lost - Pausing 3D render loop');
+      if (animationFrameIdRef.current) {
+        cancelAnimationFrame(animationFrameIdRef.current);
+        animationFrameIdRef.current = null;
+      }
+    };
+
+    const handleContextRestored = () => {
+      console.info('WebGL Context Restored - Resuming 3D render loop');
+      clock = new THREE.Clock();
+      animationFrameIdRef.current = requestAnimationFrame(animate);
+    };
+
+    canvas.addEventListener('webglcontextlost', handleContextLost, false);
+    canvas.addEventListener('webglcontextrestored', handleContextRestored, false);
+
     let clock = new THREE.Clock();
     let animTime = 0;
 
@@ -866,7 +885,6 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
 
       if (vrmRef.current) {
         vrmRef.current.update(dt);
-        applySkeletalMorphs(vrmRef.current, avatarParamsRef.current);
 
         if (isPlaying && vrmRef.current.humanoid) {
           const headNode = vrmRef.current.humanoid.getNormalizedBoneNode('head');
@@ -894,6 +912,8 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
 
     return () => {
       if (animationFrameIdRef.current) cancelAnimationFrame(animationFrameIdRef.current);
+      canvas.removeEventListener('webglcontextlost', handleContextLost);
+      canvas.removeEventListener('webglcontextrestored', handleContextRestored);
       resizeObserver.disconnect();
       renderer.dispose();
       if (container.contains(renderer.domElement)) {
@@ -923,10 +943,38 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
+
+    // 1. OS dropped files
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const droppedFile = e.dataTransfer.files[0];
       const blobUrl = URL.createObjectURL(droppedFile);
       loadModelFromUrl(blobUrl, droppedFile.name);
+      return;
+    }
+
+    // 2. FileExplorer dragged items
+    const jsonStr = e.dataTransfer.getData('application/json');
+    const textPath = e.dataTransfer.getData('text/plain');
+
+    if (jsonStr) {
+      try {
+        const item: FileItem = JSON.parse(jsonStr);
+        const content = fs.readFileContent(item.path, true);
+        const targetUrl = content.startsWith('data:') || content.startsWith('blob:')
+          ? content
+          : `file://${item.path}`;
+        loadModelFromUrl(targetUrl, item.name);
+        return;
+      } catch {}
+    }
+
+    if (textPath) {
+      const fileName = textPath.split('/').pop() || 'model.vrm';
+      const content = fs.readFileContent(textPath, true);
+      const targetUrl = content.startsWith('data:') || content.startsWith('blob:')
+        ? content
+        : `file://${textPath}`;
+      loadModelFromUrl(targetUrl, fileName);
     }
   };
 

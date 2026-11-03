@@ -26,7 +26,11 @@ import {
   Check,
   HardDrive,
   Undo2,
-  Redo2
+  Redo2,
+  CheckSquare,
+  Copy,
+  FolderInput,
+  Layers
 } from 'lucide-react';
 import { FileItem, TreeNode } from '../types';
 import { FileManagerService } from '../services/fileManager';
@@ -65,6 +69,9 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
     '/storage/emulated/0': true
   });
   const [showSearchInput, setShowSearchInput] = useState(false);
+
+  // Batch Selection State
+  const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
 
   // New File/Folder Dialog State
   const [isCreatingFile, setIsCreatingFile] = useState(false);
@@ -290,6 +297,61 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
     const matchesSearch = f.name.toLowerCase().includes(searchQuery.toLowerCase());
     return inCurrentDir && matchesSearch;
   });
+
+  const toggleSelectFile = (id: string, e?: React.SyntheticEvent) => {
+    if (e) e.stopPropagation();
+    setSelectedFileIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedFileIds.size === visibleFiles.length && visibleFiles.length > 0) {
+      setSelectedFileIds(new Set());
+    } else {
+      setSelectedFileIds(new Set(visibleFiles.map((f) => f.id)));
+    }
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedFileIds.size === 0) return;
+    const selectedItems = visibleFiles.filter((f) => selectedFileIds.has(f.id));
+    if (confirm(`Permanently delete ${selectedItems.length} selected item(s)?`)) {
+      selectedItems.forEach((f) => fs.deleteItem(f.path));
+      setSelectedFileIds(new Set());
+      showNotification(`Bulk deleted ${selectedItems.length} item(s)`);
+    }
+  };
+
+  const handleBulkCopyMove = (mode: 'copy' | 'move') => {
+    if (selectedFileIds.size === 0) return;
+    const targetDir = prompt(`Enter target directory for bulk ${mode}:`, currentPath);
+    if (!targetDir || !targetDir.trim()) return;
+
+    const cleanTarget = targetDir.trim();
+    const selectedItems = visibleFiles.filter((f) => selectedFileIds.has(f.id));
+
+    selectedItems.forEach((item) => {
+      const isBinary = item.type === 'VRM' || item.type === 'glTF' || item.type === 'Image';
+      const content = fs.readFileContent(item.path, isBinary);
+      fs.createFile(cleanTarget, item.name, item.type, content);
+      if (mode === 'move') {
+        fs.deleteItem(item.path);
+      }
+    });
+
+    setSelectedFileIds(new Set());
+    showNotification(`Bulk ${mode}ed ${selectedItems.length} item(s) to ${cleanTarget}`);
+  };
+
+  const handleBulkDownload = () => {
+    const selectedItems = visibleFiles.filter((f) => selectedFileIds.has(f.id));
+    selectedItems.forEach((f) => fs.downloadFile(f));
+    showNotification(`Exporting ${selectedItems.length} item(s)...`);
+  };
 
   return (
     <div className="flex flex-col h-full bg-[#080c14]/90 backdrop-blur-md border border-[#172a45] rounded-md overflow-hidden select-none text-xs shadow-xl">
@@ -577,6 +639,13 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
             <>
               {/* Table Header */}
               <div className="h-5 bg-[#0a0f1b] border-b border-[#172a45] px-2 flex items-center text-[9px] font-medium text-slate-400 shrink-0 sticky top-0 z-10">
+                <input
+                  type="checkbox"
+                  checked={selectedFileIds.size === visibleFiles.length && visibleFiles.length > 0}
+                  onChange={toggleSelectAll}
+                  className="mr-2 accent-[#38bdf8] cursor-pointer"
+                  title="Select / Deselect All Visible Files"
+                />
                 <span className="flex-1">Name</span>
                 <span className="w-14 text-right pr-2">Size</span>
                 <span className="w-18 text-left pl-2">Type</span>
@@ -586,11 +655,18 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
               {/* Table Rows */}
               <div className="p-0.5 space-y-0.5 flex-1">
                 {visibleFiles.map((file) => {
-                  const isSelected = selectedFile?.id === file.id;
+                  const isSelected = selectedFile?.id === file.id || selectedFileIds.has(file.id);
+                  const isChecked = selectedFileIds.has(file.id);
 
                   return (
                     <div
                       key={file.id}
+                      draggable={true}
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('text/plain', file.path);
+                        e.dataTransfer.setData('application/json', JSON.stringify(file));
+                        e.dataTransfer.effectAllowed = 'copyMove';
+                      }}
                       onClick={() => onSelectFile(file)}
                       onDoubleClick={() => {
                         if (file.isFolder) {
@@ -629,6 +705,15 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                           : 'text-slate-300 hover:bg-[#101a2c] hover:text-white border border-transparent'
                       }`}
                     >
+                      {/* Batch Checkbox */}
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => toggleSelectFile(file.id, e)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="mr-2 accent-[#38bdf8] cursor-pointer shrink-0"
+                      />
+
                       {/* Name + Icon */}
                       <div className="flex items-center space-x-1.5 flex-1 min-w-0 pr-2">
                         {getFileIcon(file.type)}
@@ -662,6 +747,12 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                 return (
                   <div
                     key={file.id}
+                    draggable={true}
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('text/plain', file.path);
+                      e.dataTransfer.setData('application/json', JSON.stringify(file));
+                      e.dataTransfer.effectAllowed = 'copyMove';
+                    }}
                     onClick={() => onSelectFile(file)}
                     onDoubleClick={() => {
                       if (file.isFolder) setCurrentPath(file.path);
@@ -691,12 +782,19 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                       onSelectFile(file);
                       if (onContextMenuFile) onContextMenuFile(file, e.clientX, e.clientY);
                     }}
-                    className={`flex flex-col items-center justify-center p-2 rounded cursor-pointer border text-center transition-all ${
+                    className={`relative flex flex-col items-center justify-center p-2 rounded cursor-pointer border text-center transition-all ${
                       isSelected
                         ? 'bg-[#0e3a6a] border-[#38bdf8] text-white shadow-[0_0_8px_rgba(56,189,248,0.3)]'
                         : 'bg-[#0b1220] border-[#172a45] text-slate-300 hover:border-[#223d63]'
                     }`}
                   >
+                    <input
+                      type="checkbox"
+                      checked={selectedFileIds.has(file.id)}
+                      onChange={(e) => toggleSelectFile(file.id, e)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute top-1.5 left-1.5 accent-[#38bdf8] cursor-pointer z-10"
+                    />
                     <div className="mb-1">{getFileIcon(file.type)}</div>
                     <span className="text-[10px] truncate max-w-full font-medium">{file.name}</span>
                     <span className="text-[8px] text-slate-400 font-mono-code">{file.size}</span>
@@ -707,6 +805,62 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
           )}
         </div>
       </div>
+
+      {/* Bulk Action Floating Bar */}
+      {selectedFileIds.size > 0 && (
+        <div className="bg-[#091b30] border-t border-[#38bdf8]/50 px-3 py-1.5 flex items-center justify-between text-xs text-slate-100 shadow-[0_-8px_24px_rgba(0,0,0,0.8)] z-20 shrink-0 animate-in slide-in-from-bottom-2">
+          <div className="flex items-center space-x-2 font-bold text-cyan-300 font-mono-code text-[11px]">
+            <CheckSquare className="w-4 h-4 text-[#38bdf8]" />
+            <span>{selectedFileIds.size} item(s) selected</span>
+          </div>
+
+          <div className="flex items-center space-x-1.5">
+            <button
+              onClick={() => handleBulkCopyMove('copy')}
+              className="px-2 py-1 rounded bg-[#0b2442] hover:bg-[#123660] border border-cyan-500/40 text-cyan-200 text-[10px] font-semibold flex items-center gap-1 transition-all"
+              title="Copy selected items to target folder"
+            >
+              <Copy className="w-3 h-3 text-[#38bdf8]" />
+              <span>Copy To</span>
+            </button>
+
+            <button
+              onClick={() => handleBulkCopyMove('move')}
+              className="px-2 py-1 rounded bg-[#0b2442] hover:bg-[#123660] border border-cyan-500/40 text-cyan-200 text-[10px] font-semibold flex items-center gap-1 transition-all"
+              title="Move selected items to target folder"
+            >
+              <FolderInput className="w-3 h-3 text-cyan-300" />
+              <span>Move To</span>
+            </button>
+
+            <button
+              onClick={handleBulkDownload}
+              className="px-2 py-1 rounded bg-[#0b2442] hover:bg-[#123660] border border-emerald-500/40 text-emerald-200 text-[10px] font-semibold flex items-center gap-1 transition-all"
+              title="Export selected items to device"
+            >
+              <Download className="w-3 h-3 text-emerald-400" />
+              <span>Export</span>
+            </button>
+
+            <button
+              onClick={handleBulkDelete}
+              className="px-2 py-1 rounded bg-[#330f18] hover:bg-[#521827] border border-rose-500/40 text-rose-200 text-[10px] font-semibold flex items-center gap-1 transition-all"
+              title="Delete selected items"
+            >
+              <Trash2 className="w-3 h-3 text-rose-400" />
+              <span>Delete ({selectedFileIds.size})</span>
+            </button>
+
+            <button
+              onClick={() => setSelectedFileIds(new Set())}
+              className="px-1.5 py-1 rounded bg-[#0b1220] text-slate-400 hover:text-white text-[10px] ml-1"
+              title="Clear selection"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
