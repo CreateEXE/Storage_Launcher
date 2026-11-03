@@ -3,7 +3,7 @@ export interface FileItem {
   name: string;
   size: string;
   sizeBytes: number;
-  type: 'Folder' | 'VRM' | 'glTF' | 'C++ Source' | 'JSON' | 'Markdown' | 'Shell Script' | 'Text' | 'Binary';
+  type: 'Folder' | 'VRM' | 'glTF' | 'C++ Source' | 'JSON' | 'Markdown' | 'Shell Script' | 'Text' | 'Binary' | 'Image';
   modified: string;
   isFolder: boolean;
   path: string;

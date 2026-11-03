@@ -54,16 +54,15 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   onClose,
   isMaximized = false
 }) => {
-  const [currentPath, setCurrentPath] = useState('/storage/emulated/0/Projects/Chimera');
+  const fs = FileManagerService.getInstance();
+  const [currentPath, setCurrentPath] = useState(fs.getNativeRootPath());
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({
     '/': true,
     '/storage': true,
     '/storage/emulated': true,
-    '/storage/emulated/0': true,
-    '/storage/emulated/0/Projects': true,
-    '/storage/emulated/0/Projects/Chimera': true
+    '/storage/emulated/0': true
   });
   const [showSearchInput, setShowSearchInput] = useState(false);
 
@@ -78,7 +77,6 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const itemLongPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const itemTouchPosRef = useRef({ x: 0, y: 0 });
-  const fs = FileManagerService.getInstance();
 
   const [canUndo, setCanUndo] = useState(fs.canUndo());
   const [canRedo, setCanRedo] = useState(fs.canRedo());
@@ -300,20 +298,29 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
         <div className="flex items-center space-x-1.5">
           <Folder className="w-3.5 h-3.5 text-amber-400 fill-amber-400/60" />
           <span className="font-semibold text-slate-200 tracking-tight text-xs">File Explorer</span>
-          <span className="hidden sm:inline text-[9px] px-1.5 py-0.2 rounded bg-[#0c1626] text-emerald-400 border border-emerald-500/30 font-mono-code">
-            /storage/emulated/0
-          </span>
+          {fs.isNativeDeviceStorage() ? (
+            <span className="flex items-center gap-1 text-[9px] px-1.5 py-0.2 rounded bg-[#0b291d] text-emerald-300 border border-emerald-500/50 font-mono-code">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>NATIVE STORAGE ACTIVE</span>
+            </span>
+          ) : (
+            <span className="hidden sm:inline text-[9px] px-1.5 py-0.2 rounded bg-[#0c1626] text-cyan-400 border border-cyan-500/30 font-mono-code">
+              {currentPath}
+            </span>
+          )}
         </div>
 
         <div className="flex items-center space-x-1">
-          <button
-            onClick={handleSetDefault}
-            className="hidden sm:flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#0c1626] border border-[#172a45] text-[10px] text-slate-300 hover:text-cyan-300"
-            title="Set as Default Android Storage Manager"
-          >
-            <HardDrive className="w-2.5 h-2.5 text-[#38bdf8]" />
-            <span>Default FM</span>
-          </button>
+          {fs.isNativeDeviceStorage() && (
+            <button
+              onClick={() => fs.requestNativePermission()}
+              className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#102438] border border-cyan-500/40 text-[10px] text-cyan-300 hover:text-white hover:bg-[#183654] transition-all"
+              title="Grant full Android storage permissions"
+            >
+              <HardDrive className="w-2.5 h-2.5 text-cyan-400" />
+              <span>Grant Permissions</span>
+            </button>
+          )}
 
           {onMinimize && (
             <button

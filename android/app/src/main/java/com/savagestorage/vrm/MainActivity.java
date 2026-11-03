@@ -1,10 +1,15 @@
 package com.savagestorage.vrm;
 
+import android.Manifest;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.util.Base64;
 import android.util.Log;
 import android.view.View;
 import android.webkit.ConsoleMessage;
+import android.webkit.JavascriptInterface;
 import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
@@ -13,11 +18,226 @@ import android.webkit.WebViewClient;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "SavageStorageMainActivity";
+    private static final int PERMISSION_REQUEST_CODE = 1001;
     private WebView webView;
+
+    public class AndroidStorageBridge {
+
+        @JavascriptInterface
+        public boolean hasStoragePermission() {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                return Environment.isExternalStorageManager();
+            } else {
+                int read = ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_EXTERNAL_STORAGE);
+                int write = ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE);
+                return read == PackageManager.PERMISSION_GRANTED && write == PackageManager.PERMISSION_GRANTED;
+            }
+        }
+
+        @JavascriptInterface
+        public void requestStoragePermission() {
+            runOnUiThread(() -> {
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+                    ActivityCompat.requestPermissions(
+                        MainActivity.this,
+                        new String[]{
+                            Manifest.permission.READ_EXTERNAL_STORAGE,
+                            Manifest.permission.WRITE_EXTERNAL_STORAGE
+                        },
+                        PERMISSION_REQUEST_CODE
+                    );
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public String getStorageRootPath() {
+            File external = Environment.getExternalStorageDirectory();
+            if (external != null && external.exists()) {
+                return external.getAbsolutePath();
+            }
+            return getFilesDir().getAbsolutePath();
+        }
+
+        @JavascriptInterface
+        public String listDirectory(String dirPath) {
+            try {
+                String targetPath = (dirPath == null || dirPath.trim().isEmpty() || dirPath.equals("/"))
+                        ? getStorageRootPath()
+                        : dirPath;
+
+                File dir = new File(targetPath);
+                if (!dir.exists() || !dir.isDirectory()) {
+                    return "[]";
+                }
+
+                File[] files = dir.listFiles();
+                if (files == null) {
+                    return "[]";
+                }
+
+                JSONArray array = new JSONArray();
+                SimpleDateFormat sdf = new SimpleDateFormat("MM/dd HH:mm", Locale.US);
+
+                for (File file : files) {
+                    JSONObject obj = new JSONObject();
+                    obj.put("name", file.getName());
+                    obj.put("path", file.getAbsolutePath());
+                    obj.put("isFolder", file.isDirectory());
+                    obj.put("sizeBytes", file.isDirectory() ? 0 : file.length());
+                    obj.put("modified", sdf.format(new Date(file.lastModified())));
+
+                    String ext = "";
+                    int i = file.getName().lastIndexOf('.');
+                    if (i > 0) ext = file.getName().substring(i + 1).toLowerCase();
+
+                    String type = "File";
+                    if (file.isDirectory()) type = "Folder";
+                    else if (ext.equals("vrm")) type = "VRM";
+                    else if (ext.equals("glb") || ext.equals("gltf")) type = "glTF";
+                    else if (ext.equals("png") || ext.equals("jpg") || ext.equals("jpeg")) type = "Image";
+                    else if (ext.equals("json")) type = "JSON";
+                    else if (ext.equals("txt") || ext.equals("md") || ext.equals("sh")) type = "Text";
+
+                    obj.put("type", type);
+                    array.put(obj);
+                }
+
+                return array.toString();
+            } catch (Exception e) {
+                Log.e(TAG, "Error listing directory: " + dirPath, e);
+                return "[]";
+            }
+        }
+
+        @JavascriptInterface
+        public String readFileAsBase64(String filePath) {
+            try {
+                File file = new File(filePath);
+                if (!file.exists() || !file.isFile()) return "";
+
+                long length = file.length();
+                if (length > 50 * 1024 * 1024) { // 50MB safety limit
+                    return "";
+                }
+
+                byte[] bytes = new byte[(int) length];
+                try (FileInputStream fis = new FileInputStream(file)) {
+                    int read = fis.read(bytes);
+                    if (read > 0) {
+                        return Base64.encodeToString(bytes, Base64.NO_WRAP);
+                    }
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error reading file base64: " + filePath, e);
+            }
+            return "";
+        }
+
+        @JavascriptInterface
+        public String readFileAsString(String filePath) {
+            try {
+                File file = new File(filePath);
+                if (!file.exists() || !file.isFile()) return "";
+
+                byte[] bytes = new byte[(int) file.length()];
+                try (FileInputStream fis = new FileInputStream(file)) {
+                    fis.read(bytes);
+                    return new String(bytes, "UTF-8");
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error reading file string: " + filePath, e);
+            }
+            return "";
+        }
+
+        @JavascriptInterface
+        public boolean writeFile(String filePath, String dataContent, boolean isBase64) {
+            try {
+                File file = new File(filePath);
+                File parent = file.getParentFile();
+                if (parent != null && !parent.exists()) {
+                    parent.mkdirs();
+                }
+
+                byte[] bytes;
+                if (isBase64) {
+                    // strip data URI prefix if present
+                    String base64Data = dataContent;
+                    if (base64Data.contains(",")) {
+                        base64Data = base64Data.substring(base64Data.indexOf(",") + 1);
+                    }
+                    bytes = Base64.decode(base64Data, Base64.NO_WRAP);
+                } else {
+                    bytes = dataContent.getBytes("UTF-8");
+                }
+
+                try (FileOutputStream fos = new FileOutputStream(file)) {
+                    fos.write(bytes);
+                    fos.flush();
+                }
+                return true;
+            } catch (Exception e) {
+                Log.e(TAG, "Error writing file: " + filePath, e);
+                return false;
+            }
+        }
+
+        @JavascriptInterface
+        public boolean deletePath(String filePath) {
+            try {
+                File file = new File(filePath);
+                if (!file.exists()) return false;
+                if (file.isDirectory()) {
+                    deleteRecursive(file);
+                    return true;
+                }
+                return file.delete();
+            } catch (Exception e) {
+                Log.e(TAG, "Error deleting path: " + filePath, e);
+                return false;
+            }
+        }
+
+        private void deleteRecursive(File fileOrDirectory) {
+            if (fileOrDirectory.isDirectory()) {
+                File[] children = fileOrDirectory.listFiles();
+                if (children != null) {
+                    for (File child : children) {
+                        deleteRecursive(child);
+                    }
+                }
+            }
+            fileOrDirectory.delete();
+        }
+
+        @JavascriptInterface
+        public boolean createDirectory(String dirPath) {
+            try {
+                File dir = new File(dirPath);
+                return dir.mkdirs() || dir.exists();
+            } catch (Exception e) {
+                Log.e(TAG, "Error creating directory: " + dirPath, e);
+                return false;
+            }
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -36,15 +256,16 @@ public class MainActivity extends AppCompatActivity {
             settings.setAllowContentAccess(true);
             settings.setMediaPlaybackRequiresUserGesture(false);
 
-            // Enable file access and universal access from file URLs for local Vite asset loading
             settings.setAllowFileAccessFromFileURLs(true);
             settings.setAllowUniversalAccessFromFileURLs(true);
 
-            // Enable hardware acceleration & WebGL support
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 settings.setSafeBrowsingEnabled(false);
             }
+
+            // Expose Native Android Storage Javascript Interface
+            webView.addJavascriptInterface(new AndroidStorageBridge(), "AndroidStorage");
 
             webView.setWebViewClient(new WebViewClient() {
                 @Override
@@ -68,7 +289,6 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
 
-            // Modern OnBackPressedDispatcher handling for Android 13+ / 14+ / 15+ / 16+
             getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
                 @Override
                 public void handleOnBackPressed() {

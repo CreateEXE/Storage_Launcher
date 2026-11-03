@@ -4,6 +4,22 @@ import { INITIAL_FILES, FOLDER_TREE } from '../data/mockData';
 const STORAGE_KEY = 'termux_gui_filesystem_v2';
 const TREE_STORAGE_KEY = 'termux_gui_foldertree_v2';
 
+declare global {
+  interface Window {
+    AndroidStorage?: {
+      hasStoragePermission: () => boolean;
+      requestStoragePermission: () => void;
+      getStorageRootPath: () => string;
+      listDirectory: (dirPath: string) => string;
+      readFileAsBase64: (filePath: string) => string;
+      readFileAsString: (filePath: string) => string;
+      writeFile: (filePath: string, content: string, isBase64: boolean) => boolean;
+      deletePath: (filePath: string) => boolean;
+      createDirectory: (dirPath: string) => boolean;
+    };
+  }
+}
+
 interface HistoryState {
   files: FileItem[];
   tree: TreeNode;
@@ -21,8 +37,17 @@ export class FileManagerService {
   private redoStack: HistoryState[] = [];
   private maxHistory: number = 30;
 
+  private isNativeStorageAvailable: boolean = false;
+  private currentNativeDirPath: string = '';
+
   private constructor() {
-    this.load();
+    this.isNativeStorageAvailable = typeof window !== 'undefined' && !!window.AndroidStorage;
+    if (this.isNativeStorageAvailable && window.AndroidStorage) {
+      this.currentNativeDirPath = window.AndroidStorage.getStorageRootPath();
+      this.syncFromNativeStorage(this.currentNativeDirPath);
+    } else {
+      this.load();
+    }
   }
 
   public static getInstance(): FileManagerService {
@@ -30,6 +55,76 @@ export class FileManagerService {
       FileManagerService.instance = new FileManagerService();
     }
     return FileManagerService.instance;
+  }
+
+  public isNativeDeviceStorage(): boolean {
+    return this.isNativeStorageAvailable;
+  }
+
+  public getNativeRootPath(): string {
+    if (this.isNativeStorageAvailable && window.AndroidStorage) {
+      return window.AndroidStorage.getStorageRootPath();
+    }
+    return '/storage/emulated/0';
+  }
+
+  public requestNativePermission(): void {
+    if (this.isNativeStorageAvailable && window.AndroidStorage) {
+      window.AndroidStorage.requestStoragePermission();
+    }
+  }
+
+  public syncFromNativeStorage(dirPath?: string): FileItem[] {
+    if (!this.isNativeStorageAvailable || !window.AndroidStorage) {
+      return this.files;
+    }
+
+    const targetDir = dirPath || this.currentNativeDirPath || this.getNativeRootPath();
+    this.currentNativeDirPath = targetDir;
+
+    try {
+      const rawJson = window.AndroidStorage.listDirectory(targetDir);
+      const parsed = JSON.parse(rawJson || '[]');
+
+      const nativeFiles: FileItem[] = parsed.map((item: any) => ({
+        id: `native_${item.path.replace(/[^a-zA-Z0-9]/g, '_')}`,
+        name: item.name,
+        size: item.isFolder ? '--' : this.formatBytes(item.sizeBytes || 0),
+        sizeBytes: item.sizeBytes || 0,
+        type: item.type || (item.isFolder ? 'Folder' : 'File'),
+        modified: item.modified || this.formatDate(new Date()),
+        isFolder: item.isFolder,
+        path: item.path,
+        created: item.modified || this.formatDate(new Date())
+      }));
+
+      // Merge native files into files cache
+      this.files = nativeFiles;
+      this.buildTreeFromNativePath(targetDir, nativeFiles);
+      this.notify();
+      return nativeFiles;
+    } catch (e) {
+      console.warn('Failed to query native device storage:', e);
+      return this.files;
+    }
+  }
+
+  private buildTreeFromNativePath(currentDir: string, currentFiles: FileItem[]): void {
+    const rootPath = this.getNativeRootPath();
+    const childrenNodes: TreeNode[] = currentFiles
+      .filter((f) => f.isFolder)
+      .map((f) => ({
+        name: f.name,
+        path: f.path,
+        isOpen: false
+      }));
+
+    this.tree = {
+      name: currentDir === rootPath ? 'Device Storage (/sdcard)' : currentDir.split('/').pop() || 'Storage',
+      path: currentDir,
+      isOpen: true,
+      children: childrenNodes
+    };
   }
 
   private load(): void {
@@ -59,8 +154,10 @@ export class FileManagerService {
 
   private save(): void {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.files));
-      localStorage.setItem(TREE_STORAGE_KEY, JSON.stringify(this.tree));
+      if (!this.isNativeStorageAvailable) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(this.files));
+        localStorage.setItem(TREE_STORAGE_KEY, JSON.stringify(this.tree));
+      }
       this.notify();
     } catch (e) {
       console.warn('Storage save failed:', e);
@@ -77,7 +174,7 @@ export class FileManagerService {
     if (this.undoStack.length > this.maxHistory) {
       this.undoStack.shift();
     }
-    this.redoStack = []; // Clear redo history on new user action
+    this.redoStack = [];
   }
 
   public canUndo(): boolean {
@@ -91,7 +188,6 @@ export class FileManagerService {
   public undo(): string | null {
     if (this.undoStack.length === 0) return null;
 
-    // Push current state to redo stack
     const currentSnapshot: HistoryState = {
       files: JSON.parse(JSON.stringify(this.files)),
       tree: JSON.parse(JSON.stringify(this.tree)),
@@ -99,7 +195,6 @@ export class FileManagerService {
     };
     this.redoStack.push(currentSnapshot);
 
-    // Pop state from undo stack
     const previousState = this.undoStack.pop()!;
     this.files = previousState.files;
     this.tree = previousState.tree;
@@ -111,7 +206,6 @@ export class FileManagerService {
   public redo(): string | null {
     if (this.redoStack.length === 0) return null;
 
-    // Push current state to undo stack
     const currentSnapshot: HistoryState = {
       files: JSON.parse(JSON.stringify(this.files)),
       tree: JSON.parse(JSON.stringify(this.tree)),
@@ -119,7 +213,6 @@ export class FileManagerService {
     };
     this.undoStack.push(currentSnapshot);
 
-    // Pop state from redo stack
     const nextState = this.redoStack.pop()!;
     this.files = nextState.files;
     this.tree = nextState.tree;
@@ -140,6 +233,9 @@ export class FileManagerService {
   }
 
   public getFiles(): FileItem[] {
+    if (this.isNativeStorageAvailable) {
+      return this.syncFromNativeStorage();
+    }
     return [...this.files];
   }
 
@@ -148,11 +244,27 @@ export class FileManagerService {
   }
 
   public getFilesByPath(dirPath: string): FileItem[] {
+    if (this.isNativeStorageAvailable) {
+      return this.syncFromNativeStorage(dirPath);
+    }
+
     const cleanPath = dirPath.replace(/\/+$/, '');
     return this.files.filter((f) => {
       const parent = f.path.substring(0, f.path.lastIndexOf('/'));
       return parent === cleanPath;
     });
+  }
+
+  public readFileContent(filePath: string, isBinary: boolean = false): string {
+    if (this.isNativeStorageAvailable && window.AndroidStorage) {
+      if (isBinary) {
+        const base64 = window.AndroidStorage.readFileAsBase64(filePath);
+        return base64 ? `data:application/octet-stream;base64,${base64}` : '';
+      }
+      return window.AndroidStorage.readFileAsString(filePath);
+    }
+    const item = this.files.find((f) => f.path === filePath);
+    return item?.content || '';
   }
 
   public createFile(
@@ -166,6 +278,12 @@ export class FileManagerService {
     const cleanParent = parentPath.replace(/\/+$/, '');
     const path = `${cleanParent}/${name}`;
     const sizeBytes = new Blob([content]).size;
+
+    if (this.isNativeStorageAvailable && window.AndroidStorage) {
+      const isBase64 = content.startsWith('data:') && content.includes(';base64,');
+      window.AndroidStorage.writeFile(path, content, isBase64);
+      this.syncFromNativeStorage(cleanParent);
+    }
 
     const newFile: FileItem = {
       id: `file_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -197,6 +315,11 @@ export class FileManagerService {
     const cleanParent = parentPath.replace(/\/+$/, '');
     const path = `${cleanParent}/${folderName}`;
 
+    if (this.isNativeStorageAvailable && window.AndroidStorage) {
+      window.AndroidStorage.createDirectory(path);
+      this.syncFromNativeStorage(cleanParent);
+    }
+
     const newFolder: FileItem = {
       id: `dir_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       name: folderName,
@@ -220,9 +343,16 @@ export class FileManagerService {
 
   public deleteItem(path: string): boolean {
     const item = this.files.find((f) => f.path === path);
-    if (!item) return false;
+    if (item) {
+      this.pushHistory(`Deleted '${item.name}'`);
+    }
 
-    this.pushHistory(`Deleted '${item.name}'`);
+    if (this.isNativeStorageAvailable && window.AndroidStorage) {
+      window.AndroidStorage.deletePath(path);
+      const parentDir = path.substring(0, path.lastIndexOf('/'));
+      this.syncFromNativeStorage(parentDir);
+      return true;
+    }
 
     const initialLen = this.files.length;
     this.files = this.files.filter((f) => f.path !== path && !f.path.startsWith(`${path}/`));
@@ -239,6 +369,18 @@ export class FileManagerService {
 
     const parent = oldPath.substring(0, oldPath.lastIndexOf('/'));
     const newPath = `${parent}/${newName}`;
+
+    if (this.isNativeStorageAvailable && window.AndroidStorage) {
+      // For native device storage, read old content & write to new path then delete old
+      const isBinary = item.type === 'VRM' || item.type === 'glTF' || item.type === 'Image';
+      const content = this.readFileContent(oldPath, isBinary);
+      if (content) {
+        window.AndroidStorage.writeFile(newPath, content, isBinary);
+        window.AndroidStorage.deletePath(oldPath);
+        this.syncFromNativeStorage(parent);
+        return true;
+      }
+    }
 
     item.name = newName;
     item.path = newPath;
@@ -257,7 +399,7 @@ export class FileManagerService {
   }
 
   public downloadFile(file: FileItem): void {
-    const content = file.content || `[Binary payload for ${file.name}]`;
+    const content = file.content || this.readFileContent(file.path, true) || `[Binary payload for ${file.name}]`;
     const blob = new Blob([content], { type: 'application/octet-stream' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
