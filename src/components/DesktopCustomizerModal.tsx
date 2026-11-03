@@ -42,7 +42,7 @@ export const DesktopCustomizerModal: React.FC<DesktopCustomizerModalProps> = ({
       id: 'nihonga_live',
       label: 'Live Nihonga Waves & Leaves',
       desc: 'Animated Nihonga painting with falling leaves & undulating waves',
-      preview: '/assets/aistudio/japanese_nihonga_painting_abou__10__19e79978.jpeg',
+      preview: '/assets/system/japanese_nihonga_painting_abou__10__19e79978.jpeg',
       isLive: true
     },
     {
@@ -56,7 +56,7 @@ export const DesktopCustomizerModal: React.FC<DesktopCustomizerModalProps> = ({
       id: 'nihonga',
       label: 'Static Nihonga Painting',
       desc: 'Authentic starry Nihonga artwork',
-      preview: '/assets/aistudio/japanese_nihonga_painting_abou__10__19e79978.jpeg'
+      preview: '/assets/system/japanese_nihonga_painting_abou__10__19e79978.jpeg'
     },
     {
       id: 'midnight',

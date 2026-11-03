@@ -293,7 +293,7 @@ export const LiveWallpaper: React.FC<LiveWallpaperProps> = ({
   const getBaseStyle = (): React.CSSProperties => {
     if (wallpaper === 'nihonga' || wallpaper === 'nihonga_live') {
       return {
-        backgroundImage: `url('/assets/aistudio/japanese_nihonga_painting_abou__10__19e79978.jpeg')`,
+        backgroundImage: `url('/assets/system/japanese_nihonga_painting_abou__10__19e79978.jpeg')`,
         backgroundSize: 'cover',
         backgroundPosition: 'center'
       };
@@ -326,7 +326,7 @@ export const LiveWallpaper: React.FC<LiveWallpaperProps> = ({
       };
     }
     return {
-      backgroundImage: `url('/assets/aistudio/japanese_nihonga_painting_abou__10__19e79978.jpeg')`,
+      backgroundImage: `url('/assets/system/japanese_nihonga_painting_abou__10__19e79978.jpeg')`,
       backgroundSize: 'cover',
       backgroundPosition: 'center'
     };

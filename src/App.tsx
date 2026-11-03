@@ -494,7 +494,7 @@ export default function App() {
   const getWallpaperStyle = (): React.CSSProperties => {
     if (customization.wallpaper === 'nihonga') {
       return {
-        backgroundImage: `url('/assets/aistudio/japanese_nihonga_painting_abou__10__19e79978.jpeg')`,
+        backgroundImage: `url('/assets/system/japanese_nihonga_painting_abou__10__19e79978.jpeg')`,
         backgroundSize: 'cover',
         backgroundPosition: 'center'
       };
@@ -522,7 +522,7 @@ export default function App() {
       };
     }
     return {
-      backgroundImage: `url('/assets/aistudio/japanese_nihonga_painting_abou__10__19e79978.jpeg')`,
+      backgroundImage: `url('/assets/system/japanese_nihonga_painting_abou__10__19e79978.jpeg')`,
       backgroundSize: 'cover',
       backgroundPosition: 'center'
     };
