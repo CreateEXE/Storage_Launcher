@@ -1,16 +1,21 @@
 package com.savagestorage.vrm;
 
 import android.Manifest;
+import android.content.ActivityNotFoundException;
+import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.provider.Settings;
 import android.util.Base64;
 import android.util.Log;
 import android.view.View;
 import android.webkit.ConsoleMessage;
 import android.webkit.JavascriptInterface;
 import android.webkit.RenderProcessGoneDetail;
+import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -35,7 +40,10 @@ public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "SavageStorageMainActivity";
     private static final int PERMISSION_REQUEST_CODE = 1001;
+    private static final int FILECHOOSER_RESULTCODE = 1002;
+
     private WebView webView;
+    private ValueCallback<Uri[]> uploadMessage;
 
     public class AndroidStorageBridge {
 
@@ -53,7 +61,21 @@ public class MainActivity extends AppCompatActivity {
         @JavascriptInterface
         public void requestStoragePermission() {
             runOnUiThread(() -> {
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    try {
+                        Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                        Uri uri = Uri.fromParts("package", getPackageName(), null);
+                        intent.setData(uri);
+                        startActivity(intent);
+                    } catch (Exception e) {
+                        try {
+                            Intent intent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+                            startActivity(intent);
+                        } catch (Exception ex) {
+                            Log.e(TAG, "Could not open manage storage settings", ex);
+                        }
+                    }
+                } else {
                     ActivityCompat.requestPermissions(
                         MainActivity.this,
                         new String[]{
@@ -133,7 +155,7 @@ public class MainActivity extends AppCompatActivity {
                 if (!file.exists() || !file.isFile()) return "";
 
                 long length = file.length();
-                if (length > 50 * 1024 * 1024) { // 50MB safety limit
+                if (length > 100 * 1024 * 1024) { // 100MB safety limit
                     return "";
                 }
 
@@ -178,7 +200,6 @@ public class MainActivity extends AppCompatActivity {
 
                 byte[] bytes;
                 if (isBase64) {
-                    // strip data URI prefix if present
                     String base64Data = dataContent;
                     if (base64Data.contains(",")) {
                         base64Data = base64Data.substring(base64Data.indexOf(",") + 1);
@@ -280,11 +301,34 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
 
+            // WebChromeClient with Native Android System File Chooser
             webView.setWebChromeClient(new WebChromeClient() {
                 @Override
                 public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
                     Log.d("SavageStorageWeb", consoleMessage.message() + " -- Line "
                             + consoleMessage.lineNumber() + " of " + consoleMessage.sourceId());
+                    return true;
+                }
+
+                @Override
+                public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
+                    if (uploadMessage != null) {
+                        uploadMessage.onReceiveValue(null);
+                        uploadMessage = null;
+                    }
+                    uploadMessage = filePathCallback;
+
+                    Intent intent = fileChooserParams.createIntent();
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("*/*");
+
+                    try {
+                        startActivityForResult(intent, FILECHOOSER_RESULTCODE);
+                    } catch (ActivityNotFoundException e) {
+                        uploadMessage = null;
+                        Log.e(TAG, "ActivityNotFoundException opening file chooser", e);
+                        return false;
+                    }
                     return true;
                 }
             });
@@ -304,6 +348,29 @@ public class MainActivity extends AppCompatActivity {
             webView.loadUrl("file:///android_asset/public/index.html");
         } catch (Exception e) {
             Log.e(TAG, "Fatal error initializing MainActivity WebView", e);
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == FILECHOOSER_RESULTCODE) {
+            if (uploadMessage == null) return;
+            Uri[] results = null;
+            if (resultCode == RESULT_OK && data != null) {
+                String dataString = data.getDataString();
+                if (dataString != null) {
+                    results = new Uri[]{Uri.parse(dataString)};
+                } else if (data.getClipData() != null) {
+                    int count = data.getClipData().getItemCount();
+                    results = new Uri[count];
+                    for (int i = 0; i < count; i++) {
+                        results[i] = data.getClipData().getItemAt(i).getUri();
+                    }
+                }
+            }
+            uploadMessage.onReceiveValue(results);
+            uploadMessage = null;
         }
     }
 
