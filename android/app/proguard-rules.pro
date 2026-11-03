@@ -1,0 +1,1 @@
+# Storage Launcher ProGuard rules.

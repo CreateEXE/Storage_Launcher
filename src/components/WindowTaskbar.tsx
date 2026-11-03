@@ -35,13 +35,77 @@ interface WindowTaskbarProps {
   showTerminal?: boolean;
 }
 
-// Stylized 4-tile PC Windows-style Logo Mark
-const PcWindowsLogoMark: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none">
-    <path d="M3 4.5L11 3.2V11.2H3V4.5Z" className="fill-[#38bdf8] group-hover:fill-cyan-200 transition-colors" />
-    <path d="M12.5 3L21 1.8V11.2H12.5V3Z" className="fill-blue-400 group-hover:fill-cyan-100 transition-colors" />
-    <path d="M3 12.8H11V20.8L3 19.5V12.8Z" className="fill-cyan-500 group-hover:fill-cyan-300 transition-colors" />
-    <path d="M12.5 12.8H21V22.2L12.5 21V12.8Z" className="fill-blue-500 group-hover:fill-cyan-200 transition-colors" />
+// Stylized Purple Fox Oni Mask with 2 Emerald Green Horns Logo Mark
+const OniFoxLogoMark: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="purpleFoxGrad" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stopColor="#d8b4fe" />
+        <stop offset="45%" stopColor="#a855f7" />
+        <stop offset="100%" stopColor="#6b21a8" />
+      </linearGradient>
+      <linearGradient id="greenHornGrad" x1="0" y1="0" x2="0" y2="12" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stopColor="#4ade80" />
+        <stop offset="60%" stopColor="#22c55e" />
+        <stop offset="100%" stopColor="#15803d" />
+      </linearGradient>
+    </defs>
+
+    {/* 2 Emerald Green Horns */}
+    {/* Left Horn */}
+    <path
+      d="M7.5 8.5C6 5.5 4.5 3 2.5 1.5C4 4 5 7 6.2 9.5Z"
+      fill="url(#greenHornGrad)"
+      stroke="#86efac"
+      strokeWidth="0.5"
+    />
+    {/* Right Horn */}
+    <path
+      d="M16.5 8.5C18 5.5 19.5 3 21.5 1.5C20 4 19 7 17.8 9.5Z"
+      fill="url(#greenHornGrad)"
+      stroke="#86efac"
+      strokeWidth="0.5"
+    />
+
+    {/* Fox Ears Outer & Inner */}
+    {/* Left Ear */}
+    <path d="M4.5 9L6.5 3.5L9.5 8Z" fill="#581c87" stroke="#a855f7" strokeWidth="0.5" />
+    <path d="M5.5 8L6.5 4.8L8 7.2Z" fill="#c084fc" />
+
+    {/* Right Ear */}
+    <path d="M19.5 9L17.5 3.5L14.5 8Z" fill="#581c87" stroke="#a855f7" strokeWidth="0.5" />
+    <path d="M18.5 8L17.5 4.8L16 7.2Z" fill="#c084fc" />
+
+    {/* Purple Fox Mask Face Base */}
+    <path
+      d="M4.5 9C7 7.5 17 7.5 19.5 9C21 12.5 18.5 16.5 16.5 19L12 23L7.5 19C5.5 16.5 3 12.5 4.5 9Z"
+      fill="url(#purpleFoxGrad)"
+      stroke="#e9d5ff"
+      strokeWidth="0.6"
+    />
+
+    {/* Forehead Oni Crest / Diamond */}
+    <polygon points="12,7 13.5,9.5 12,12 10.5,9.5" fill="#4ade80" opacity="0.95" />
+
+    {/* Slanted Fox Oni Eyes */}
+    {/* Left Eye */}
+    <path d="M6.5 12.5C7.8 11.5 10 12 10.5 13.2C9.2 13.8 7.5 13.8 6.5 12.5Z" fill="#22c55e" stroke="#4ade80" strokeWidth="0.4" />
+    <circle cx="8.2" cy="12.6" r="0.6" fill="#ffffff" />
+
+    {/* Right Eye */}
+    <path d="M17.5 12.5C16.2 11.5 14 12 13.5 13.2C14.8 13.8 16.5 13.8 17.5 12.5Z" fill="#22c55e" stroke="#4ade80" strokeWidth="0.4" />
+    <circle cx="15.8" cy="12.6" r="0.6" fill="#ffffff" />
+
+    {/* Fox Nose & Fangs */}
+    <polygon points="11.2,16 12.8,16 12,17" fill="#1e1b4b" />
+    {/* Left Fang */}
+    <polygon points="9.5,17 10,19.2 10.6,17.2" fill="#86efac" />
+    {/* Right Fang */}
+    <polygon points="14.5,17 14,19.2 13.4,17.2" fill="#86efac" />
+
+    {/* Cheek Whiskers */}
+    <path d="M4 14C5.5 14.8 6.5 15.2 7.8 15" stroke="#d8b4fe" strokeWidth="0.5" strokeLinecap="round" />
+    <path d="M20 14C18.5 14.8 17.5 15.2 16.2 15" stroke="#d8b4fe" strokeWidth="0.5" strokeLinecap="round" />
   </svg>
 );
 
@@ -226,17 +290,17 @@ export const WindowTaskbar: React.FC<WindowTaskbarProps> = ({
           className="absolute bottom-10 left-2 w-88 max-w-[92vw] bg-[#030712]/96 backdrop-blur-2xl border border-cyan-500/40 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.95),0_0_25px_rgba(56,189,248,0.25)] overflow-hidden flex flex-col p-3 animate-in slide-in-from-bottom-3 duration-200 z-50"
         >
           {/* Header with PC Logo & System Badge */}
-          <div className="p-2.5 border-b border-[#1e293b] flex items-center justify-between mb-2.5 bg-[#060e1a]/90 rounded-xl border border-cyan-500/20">
+          <div className="p-2.5 border-b border-[#1e293b] flex items-center justify-between mb-2.5 bg-[#060e1a]/90 rounded-xl border border-purple-500/30">
             <div className="flex items-center space-x-2.5">
-              <div className="p-1.5 rounded-lg bg-[#09182b] border border-cyan-400/50 shadow-[0_0_12px_rgba(56,189,248,0.3)]">
-                <PcWindowsLogoMark className="w-5 h-5" />
+              <div className="p-1.5 rounded-lg bg-[#140b24] border border-purple-500/50 shadow-[0_0_14px_rgba(168,85,247,0.4)]">
+                <OniFoxLogoMark className="w-5 h-5" />
               </div>
               <div>
                 <div className="font-extrabold text-slate-100 text-xs leading-tight tracking-wider uppercase flex items-center gap-1.5">
-                  <span>Savage PC OS</span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                  <span className="bg-gradient-to-r from-purple-300 via-purple-100 to-emerald-400 bg-clip-text text-transparent">Savage PC OS</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 </div>
-                <div className="text-[9px] text-cyan-400 font-mono-code">
+                <div className="text-[9px] text-purple-300 font-mono-code">
                   Predictive Search Engine Active
                 </div>
               </div>
@@ -335,23 +399,23 @@ export const WindowTaskbar: React.FC<WindowTaskbarProps> = ({
 
       {/* Taskbar Bar Surface */}
       <div className="h-8 bg-[#030712]/92 backdrop-blur-2xl border-t border-[#1e293b] px-2.5 flex items-center justify-between shadow-[0_-4px_20px_rgba(0,0,0,0.8)]">
-        {/* Start Button with Windows-Style PC Logo Mark */}
+        {/* Start Button with Purple Fox Oni Mask Logo Mark */}
         <button
           onClick={() => setIsStartOpen(!isStartOpen)}
           className={`relative flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs font-black transition-all mr-2 shrink-0 border overflow-hidden group shadow-lg ${
             isStartOpen
-              ? 'bg-[#0e2744] text-cyan-300 border-cyan-400 shadow-[0_0_18px_rgba(56,189,248,0.5)] scale-102'
-              : 'bg-[#060b14] text-slate-100 border-[#1e293b] hover:border-cyan-400/80 hover:bg-[#0c182c] hover:shadow-[0_0_14px_rgba(56,189,248,0.3)]'
+              ? 'bg-[#1b0d33] text-purple-200 border-purple-400 shadow-[0_0_18px_rgba(168,85,247,0.5)] scale-102'
+              : 'bg-[#0b0615] text-slate-100 border-purple-900/50 hover:border-purple-400/80 hover:bg-[#160a2c] hover:shadow-[0_0_16px_rgba(168,85,247,0.4)]'
           }`}
-          title="Savage PC Start Menu (Windows Launcher)"
+          title="Savage PC Start Menu (Oni Fox Launcher)"
         >
-          <div className="transition-transform group-hover:scale-110">
-            <PcWindowsLogoMark className="w-4 h-4" />
+          <div className="transition-transform group-hover:scale-110 drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]">
+            <OniFoxLogoMark className="w-4 h-4" />
           </div>
-          <span className="tracking-wider uppercase font-extrabold text-[11px] bg-gradient-to-r from-white via-cyan-200 to-cyan-400 bg-clip-text text-transparent">
+          <span className="tracking-wider uppercase font-extrabold text-[11px] bg-gradient-to-r from-purple-200 via-purple-100 to-emerald-400 bg-clip-text text-transparent">
             Start
           </span>
-          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
         </button>
 
         {/* Running Window Pills / Tabs */}
