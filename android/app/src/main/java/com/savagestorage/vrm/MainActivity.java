@@ -119,7 +119,6 @@ public class MainActivity extends AppCompatActivity {
                     return "[]";
                 }
 
-                // Sort directories first, then alphabetical, limit to 800 to avoid freezing
                 Arrays.sort(files, (a, b) -> {
                     if (a.isDirectory() && !b.isDirectory()) return -1;
                     if (!a.isDirectory() && b.isDirectory()) return 1;
@@ -169,7 +168,7 @@ public class MainActivity extends AppCompatActivity {
                 if (!file.exists() || !file.isFile()) return "";
 
                 long length = file.length();
-                if (length > 40 * 1024 * 1024) { // 40MB limit for Base64 to prevent OOM
+                if (length > 40 * 1024 * 1024) {
                     Log.w(TAG, "File too large for Base64, should use streaming URI: " + filePath);
                     return "";
                 }
@@ -194,7 +193,7 @@ public class MainActivity extends AppCompatActivity {
                 if (!file.exists() || !file.isFile()) return "";
 
                 long length = file.length();
-                if (length > 10 * 1024 * 1024) { // 10MB limit for text strings
+                if (length > 10 * 1024 * 1024) {
                     return "";
                 }
 
@@ -296,16 +295,13 @@ public class MainActivity extends AppCompatActivity {
             settings.setAllowFileAccess(true);
             settings.setAllowContentAccess(true);
             settings.setMediaPlaybackRequiresUserGesture(false);
-
-            settings.setAllowFileAccessFromFileURLs(true);
-            settings.setAllowUniversalAccessFromFileURLs(true);
-
-            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+            settings.setAllowFileAccessFromFileURLs(false);
+            settings.setAllowUniversalAccessFromFileURLs(false);
+            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                settings.setSafeBrowsingEnabled(false);
+                settings.setSafeBrowsingEnabled(true);
             }
 
-            // Expose Native Android Storage & SAF Kotlin Bridges
             safStorageBridge = new SafStorageBridge(this, webView);
             webView.addJavascriptInterface(new AndroidStorageBridge(), "AndroidStorage");
             webView.addJavascriptInterface(safStorageBridge, "SafStorage");
@@ -355,7 +351,6 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
 
-            // WebChromeClient with Native Android System File Chooser
             webView.setWebChromeClient(new WebChromeClient() {
                 @Override
                 public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
