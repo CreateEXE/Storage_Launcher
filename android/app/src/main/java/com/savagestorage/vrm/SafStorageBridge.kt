@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.provider.DocumentsContract
 import android.util.Base64
 import android.util.Log
 import android.webkit.JavascriptInterface
@@ -116,13 +117,12 @@ class SafStorageBridge(
         return try {
             if (uriOrPath.startsWith("content://")) {
                 val uri = Uri.parse(uriOrPath)
-                if (uriOrPath.contains("/tree/")) {
+                if (uriOrPath.contains("/tree/") && !uriOrPath.contains("/document/")) {
                     DocumentFile.fromTreeUri(context, uri)
                 } else {
                     DocumentFile.fromSingleUri(context, uri)
                 }
             } else {
-                // If relative path inside SAF tree
                 val rootUriStr = getPersistedUriString()
                 if (rootUriStr.isEmpty()) return null
 
@@ -149,36 +149,105 @@ class SafStorageBridge(
     @JavascriptInterface
     public fun listSafDirectory(uriOrPath: String?): String {
         try {
-            val docDir = getDocumentFileFromUriOrPath(uriOrPath) ?: return "[]"
-            if (!docDir.isDirectory) return "[]"
+            val rootUriStr = getPersistedUriString()
+            if (rootUriStr.isEmpty()) return "[]"
+            val treeUri = Uri.parse(rootUriStr)
 
-            val files = docDir.listFiles()
+            val docDir = getDocumentFileFromUriOrPath(uriOrPath) ?: return "[]"
+            val targetUri = docDir.uri
+
             val array = JSONArray()
             val sdf = SimpleDateFormat("MM/dd HH:mm", Locale.US)
 
-            for (file in files) {
-                val obj = JSONObject()
-                val name = file.name ?: "Unknown"
-                obj.put("name", name)
-                obj.put("uri", file.uri.toString())
-                obj.put("isFolder", file.isDirectory)
-                obj.put("sizeBytes", if (file.isDirectory) 0L else file.length())
-                obj.put("modified", sdf.format(Date(file.lastModified())))
+            // Fast path: query via DocumentsContract child documents cursor
+            var cursorUsed = false
+            try {
+                val docId = if (DocumentsContract.isDocumentUri(context, targetUri)) {
+                    DocumentsContract.getDocumentId(targetUri)
+                } else {
+                    DocumentsContract.getTreeDocumentId(treeUri)
+                }
 
-                var ext = ""
-                val dotIdx = name.lastIndexOf('.')
-                if (dotIdx > 0) ext = name.substring(dotIdx + 1).lowercase(Locale.US)
+                val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, docId)
+                val projection = arrayOf(
+                    DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                    DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                    DocumentsContract.Document.COLUMN_MIME_TYPE,
+                    DocumentsContract.Document.COLUMN_SIZE,
+                    DocumentsContract.Document.COLUMN_LAST_MODIFIED
+                )
 
-                var type = "File"
-                if (file.isDirectory) type = "Folder"
-                else if (ext == "vrm") type = "VRM"
-                else if (ext == "glb" || ext == "gltf") type = "glTF"
-                else if (ext == "png" || ext == "jpg" || ext == "jpeg") type = "Image"
-                else if (ext == "json") type = "JSON"
-                else if (ext == "txt" || ext == "md" || ext == "sh" || ext == "cpp") type = "Text"
+                val cursor = context.contentResolver.query(childrenUri, projection, null, null, null)
+                if (cursor != null) {
+                    cursor.use { c ->
+                        var count = 0
+                        while (c.moveToNext() && count < 800) {
+                            val childDocId = c.getString(0) ?: continue
+                            val name = c.getString(1) ?: "Unknown"
+                            val mime = c.getString(2) ?: ""
+                            val size = if (c.isNull(3)) 0L else c.getLong(3)
+                            val lastMod = if (c.isNull(4)) 0L else c.getLong(4)
+                            val isFolder = mime == DocumentsContract.Document.MIME_TYPE_DIR
+                            val childUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, childDocId)
 
-                obj.put("type", type)
-                array.put(obj)
+                            val obj = JSONObject()
+                            obj.put("name", name)
+                            obj.put("uri", childUri.toString())
+                            obj.put("isFolder", isFolder)
+                            obj.put("sizeBytes", if (isFolder) 0L else size)
+                            obj.put("modified", sdf.format(Date(lastMod)))
+
+                            var ext = ""
+                            val dotIdx = name.lastIndexOf('.')
+                            if (dotIdx > 0) ext = name.substring(dotIdx + 1).lowercase(Locale.US)
+
+                            var type = "File"
+                            if (isFolder) type = "Folder"
+                            else if (ext == "vrm") type = "VRM"
+                            else if (ext == "glb" || ext == "gltf") type = "glTF"
+                            else if (ext == "png" || ext == "jpg" || ext == "jpeg") type = "Image"
+                            else if (ext == "json") type = "JSON"
+                            else if (ext == "txt" || ext == "md" || ext == "sh" || ext == "cpp") type = "Text"
+
+                            obj.put("type", type)
+                            array.put(obj)
+                            count++
+                        }
+                    }
+                    cursorUsed = true
+                }
+            } catch (ce: Exception) {
+                Log.w(TAG, "Cursor query failed, falling back to DocumentFile.listFiles: ${ce.message}")
+            }
+
+            if (!cursorUsed) {
+                val files = docDir.listFiles()
+                val limit = Math.min(files.size, 500)
+                for (idx in 0 until limit) {
+                    val file = files[idx]
+                    val obj = JSONObject()
+                    val name = file.name ?: "Unknown"
+                    obj.put("name", name)
+                    obj.put("uri", file.uri.toString())
+                    obj.put("isFolder", file.isDirectory)
+                    obj.put("sizeBytes", if (file.isDirectory) 0L else file.length())
+                    obj.put("modified", sdf.format(Date(file.lastModified())))
+
+                    var ext = ""
+                    val dotIdx = name.lastIndexOf('.')
+                    if (dotIdx > 0) ext = name.substring(dotIdx + 1).lowercase(Locale.US)
+
+                    var type = "File"
+                    if (file.isDirectory) type = "Folder"
+                    else if (ext == "vrm") type = "VRM"
+                    else if (ext == "glb" || ext == "gltf") type = "glTF"
+                    else if (ext == "png" || ext == "jpg" || ext == "jpeg") type = "Image"
+                    else if (ext == "json") type = "JSON"
+                    else if (ext == "txt" || ext == "md" || ext == "sh" || ext == "cpp") type = "Text"
+
+                    obj.put("type", type)
+                    array.put(obj)
+                }
             }
 
             return array.toString()
@@ -213,8 +282,15 @@ class SafStorageBridge(
                 val buffer = ByteArrayOutputStream()
                 val data = ByteArray(16384)
                 var nRead: Int
+                var total = 0
+                val maxLimit = 30 * 1024 * 1024 // 30MB max for Base64 to prevent OOM
                 while (inputStream.read(data, 0, data.size).also { nRead = it } != -1) {
                     buffer.write(data, 0, nRead)
+                    total += nRead
+                    if (total > maxLimit) {
+                        Log.w(TAG, "File exceeded Base64 limit, stream directly via Content URI instead")
+                        break
+                    }
                 }
                 inputStream.close()
                 Base64.encodeToString(buffer.toByteArray(), Base64.NO_WRAP)

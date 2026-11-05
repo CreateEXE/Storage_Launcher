@@ -54,26 +54,32 @@ export class FileManagerService {
   private isSafAvailable: boolean = false;
   private currentNativeDirPath: string = '';
 
+  // Concurrency & Recursion Guards
+  private isSyncing: boolean = false;
+  private isNotifying: boolean = false;
+  private notifyDebounceTimer: any = null;
+
   private constructor() {
     this.isNativeStorageAvailable = typeof window !== 'undefined' && !!window.AndroidStorage;
     this.isSafAvailable = typeof window !== 'undefined' && !!window.SafStorage;
 
     if (typeof window !== 'undefined') {
       window.onSafPermissionGranted = (treeUri: string) => {
-        console.log('SAF Storage Permission Granted:', treeUri);
         this.currentNativeDirPath = treeUri;
-        this.syncFromNativeStorage(treeUri);
+        this.syncFromNativeStorage(treeUri, true);
       };
     }
 
+    // Load initial fallback state immediately
+    this.load();
+
+    // If native storage exists, perform one background sync without blocking constructor
     if (this.isSafActive() && window.SafStorage) {
       this.currentNativeDirPath = window.SafStorage.getPersistedUriString();
-      this.syncFromNativeStorage(this.currentNativeDirPath);
+      setTimeout(() => this.syncFromNativeStorage(this.currentNativeDirPath, true), 10);
     } else if (this.isNativeStorageAvailable && window.AndroidStorage) {
       this.currentNativeDirPath = window.AndroidStorage.getStorageRootPath();
-      this.syncFromNativeStorage(this.currentNativeDirPath);
-    } else {
-      this.load();
+      setTimeout(() => this.syncFromNativeStorage(this.currentNativeDirPath, true), 10);
     }
   }
 
@@ -114,62 +120,75 @@ export class FileManagerService {
     this.openSafPicker();
   }
 
-  public syncFromNativeStorage(dirPath?: string): FileItem[] {
-    const targetDir = dirPath || this.currentNativeDirPath || this.getNativeRootPath();
-    this.currentNativeDirPath = targetDir;
-
-    // 1. SAF Storage Access Framework Path
-    if (this.isSafActive() && window.SafStorage) {
-      try {
-        const rawJson = window.SafStorage.listSafDirectory(targetDir);
-        const parsed = JSON.parse(rawJson || '[]');
-
-        const safFiles: FileItem[] = parsed.map((item: any) => ({
-          id: `saf_${item.uri.replace(/[^a-zA-Z0-9]/g, '_')}`,
-          name: item.name,
-          size: item.isFolder ? '--' : this.formatBytes(item.sizeBytes || 0),
-          sizeBytes: item.sizeBytes || 0,
-          type: item.type || (item.isFolder ? 'Folder' : 'File'),
-          modified: item.modified || this.formatDate(new Date()),
-          isFolder: item.isFolder,
-          path: item.uri,
-          created: item.modified || this.formatDate(new Date())
-        }));
-
-        this.files = safFiles;
-        this.buildTreeFromNativePath(targetDir, safFiles);
-        this.notify();
-        return safFiles;
-      } catch (e) {
-        console.warn('SAF storage sync exception:', e);
-      }
+  public syncFromNativeStorage(dirPath?: string, shouldNotify: boolean = true): FileItem[] {
+    if (this.isSyncing) {
+      return this.files;
     }
 
-    // 2. Direct File Bridge Path
-    if (this.isNativeStorageAvailable && window.AndroidStorage) {
-      try {
-        const rawJson = window.AndroidStorage.listDirectory(targetDir);
-        const parsed = JSON.parse(rawJson || '[]');
+    const targetDir = dirPath || this.currentNativeDirPath || this.getNativeRootPath();
+    this.currentNativeDirPath = targetDir;
+    this.isSyncing = true;
 
-        const nativeFiles: FileItem[] = parsed.map((item: any) => ({
-          id: `native_${item.path.replace(/[^a-zA-Z0-9]/g, '_')}`,
-          name: item.name,
-          size: item.isFolder ? '--' : this.formatBytes(item.sizeBytes || 0),
-          sizeBytes: item.sizeBytes || 0,
-          type: item.type || (item.isFolder ? 'Folder' : 'File'),
-          modified: item.modified || this.formatDate(new Date()),
-          isFolder: item.isFolder,
-          path: item.path,
-          created: item.modified || this.formatDate(new Date())
-        }));
+    try {
+      // 1. SAF Storage Access Framework Path
+      if (this.isSafActive() && window.SafStorage) {
+        try {
+          const rawJson = window.SafStorage.listSafDirectory(targetDir);
+          const parsed = JSON.parse(rawJson || '[]');
 
-        this.files = nativeFiles;
-        this.buildTreeFromNativePath(targetDir, nativeFiles);
-        this.notify();
-        return nativeFiles;
-      } catch (e) {
-        console.warn('Native storage sync exception:', e);
+          const safFiles: FileItem[] = parsed.map((item: any) => ({
+            id: `saf_${item.uri.replace(/[^a-zA-Z0-9]/g, '_')}`,
+            name: item.name,
+            size: item.isFolder ? '--' : this.formatBytes(item.sizeBytes || 0),
+            sizeBytes: item.sizeBytes || 0,
+            type: item.type || (item.isFolder ? 'Folder' : 'File'),
+            modified: item.modified || this.formatDate(new Date()),
+            isFolder: item.isFolder,
+            path: item.uri,
+            created: item.modified || this.formatDate(new Date())
+          }));
+
+          this.files = safFiles;
+          this.buildTreeFromNativePath(targetDir, safFiles);
+          if (shouldNotify) {
+            this.notify();
+          }
+          return safFiles;
+        } catch (e) {
+          console.warn('SAF storage sync exception:', e);
+        }
       }
+
+      // 2. Direct File Bridge Path
+      if (this.isNativeStorageAvailable && window.AndroidStorage) {
+        try {
+          const rawJson = window.AndroidStorage.listDirectory(targetDir);
+          const parsed = JSON.parse(rawJson || '[]');
+
+          const nativeFiles: FileItem[] = parsed.map((item: any) => ({
+            id: `native_${item.path.replace(/[^a-zA-Z0-9]/g, '_')}`,
+            name: item.name,
+            size: item.isFolder ? '--' : this.formatBytes(item.sizeBytes || 0),
+            sizeBytes: item.sizeBytes || 0,
+            type: item.type || (item.isFolder ? 'Folder' : 'File'),
+            modified: item.modified || this.formatDate(new Date()),
+            isFolder: item.isFolder,
+            path: item.path,
+            created: item.modified || this.formatDate(new Date())
+          }));
+
+          this.files = nativeFiles;
+          this.buildTreeFromNativePath(targetDir, nativeFiles);
+          if (shouldNotify) {
+            this.notify();
+          }
+          return nativeFiles;
+        } catch (e) {
+          console.warn('Native storage sync exception:', e);
+        }
+      }
+    } finally {
+      this.isSyncing = false;
     }
 
     return this.files;
@@ -202,7 +221,6 @@ export class FileManagerService {
         this.files = [...parsed, ...missing];
       } else {
         this.files = [...INITIAL_FILES];
-        this.save();
       }
 
       const storedTree = localStorage.getItem(TREE_STORAGE_KEY);
@@ -294,13 +312,32 @@ export class FileManagerService {
   }
 
   private notify(): void {
-    this.listeners.forEach((l) => l());
+    if (this.isNotifying) {
+      return;
+    }
+
+    if (this.notifyDebounceTimer) {
+      clearTimeout(this.notifyDebounceTimer);
+    }
+
+    this.notifyDebounceTimer = setTimeout(() => {
+      this.isNotifying = true;
+      try {
+        this.listeners.forEach((l) => {
+          try {
+            l();
+          } catch (err) {
+            console.error('Error in fileManager listener:', err);
+          }
+        });
+      } finally {
+        this.isNotifying = false;
+      }
+    }, 40);
   }
 
+  // PURE GETTER: Never trigger notify or synchronous recursion
   public getFiles(): FileItem[] {
-    if (this.isNativeDeviceStorage()) {
-      return this.syncFromNativeStorage();
-    }
     return [...this.files];
   }
 
@@ -308,9 +345,48 @@ export class FileManagerService {
     return this.tree;
   }
 
+  // PURE GETTER: Queries the directory without modifying this.files or calling notify()
   public getFilesByPath(dirPath: string): FileItem[] {
-    if (this.isNativeDeviceStorage()) {
-      return this.syncFromNativeStorage(dirPath);
+    if (this.isSafActive() && window.SafStorage) {
+      try {
+        const rawJson = window.SafStorage.listSafDirectory(dirPath);
+        const parsed = JSON.parse(rawJson || '[]');
+        return parsed.map((item: any) => ({
+          id: `saf_${item.uri.replace(/[^a-zA-Z0-9]/g, '_')}`,
+          name: item.name,
+          size: item.isFolder ? '--' : this.formatBytes(item.sizeBytes || 0),
+          sizeBytes: item.sizeBytes || 0,
+          type: item.type || (item.isFolder ? 'Folder' : 'File'),
+          modified: item.modified || this.formatDate(new Date()),
+          isFolder: item.isFolder,
+          path: item.uri,
+          created: item.modified || this.formatDate(new Date())
+        }));
+      } catch (e) {
+        console.warn('Error reading SAF directory in getFilesByPath:', e);
+        return [];
+      }
+    }
+
+    if (this.isNativeStorageAvailable && window.AndroidStorage) {
+      try {
+        const rawJson = window.AndroidStorage.listDirectory(dirPath);
+        const parsed = JSON.parse(rawJson || '[]');
+        return parsed.map((item: any) => ({
+          id: `native_${item.path.replace(/[^a-zA-Z0-9]/g, '_')}`,
+          name: item.name,
+          size: item.isFolder ? '--' : this.formatBytes(item.sizeBytes || 0),
+          sizeBytes: item.sizeBytes || 0,
+          type: item.type || (item.isFolder ? 'Folder' : 'File'),
+          modified: item.modified || this.formatDate(new Date()),
+          isFolder: item.isFolder,
+          path: item.path,
+          created: item.modified || this.formatDate(new Date())
+        }));
+      } catch (e) {
+        console.warn('Error reading AndroidStorage directory in getFilesByPath:', e);
+        return [];
+      }
     }
 
     const cleanPath = dirPath.replace(/\/+$/, '');
@@ -321,19 +397,22 @@ export class FileManagerService {
   }
 
   public readFileContent(filePath: string, isBinary: boolean = false): string {
+    // For binary 3D models or images on native device, return the streaming path directly
+    if (isBinary) {
+      if (filePath.startsWith('content://') || filePath.startsWith('file://')) {
+        return filePath;
+      }
+      if (filePath.startsWith('/')) {
+        return `file://${filePath}`;
+      }
+    }
+
     if (this.isSafActive() && window.SafStorage) {
       if (isBinary) {
         const base64 = window.SafStorage.readSafFileAsBase64(filePath);
         if (!base64) return '';
         try {
-          const byteCharacters = atob(base64);
-          const byteNumbers = new Array(byteCharacters.length);
-          for (let i = 0; i < byteCharacters.length; i++) {
-            byteNumbers[i] = byteCharacters.charCodeAt(i);
-          }
-          const byteArray = new Uint8Array(byteNumbers);
-          const blob = new Blob([byteArray], { type: 'application/octet-stream' });
-          return URL.createObjectURL(blob);
+          return `data:application/octet-stream;base64,${base64}`;
         } catch {
           return '';
         }
@@ -346,14 +425,7 @@ export class FileManagerService {
         const base64 = window.AndroidStorage.readFileAsBase64(filePath);
         if (!base64) return '';
         try {
-          const byteCharacters = atob(base64);
-          const byteNumbers = new Array(byteCharacters.length);
-          for (let i = 0; i < byteCharacters.length; i++) {
-            byteNumbers[i] = byteCharacters.charCodeAt(i);
-          }
-          const byteArray = new Uint8Array(byteNumbers);
-          const blob = new Blob([byteArray], { type: 'application/octet-stream' });
-          return URL.createObjectURL(blob);
+          return `data:application/octet-stream;base64,${base64}`;
         } catch {
           return '';
         }
@@ -379,12 +451,12 @@ export class FileManagerService {
 
     if (this.isSafActive() && window.SafStorage) {
       const isBase64 = content.startsWith('data:') && content.includes(';base64,');
-      const createdUri = window.SafStorage.writeSafFile(cleanParent, name, content, isBase64);
-      this.syncFromNativeStorage(cleanParent);
+      window.SafStorage.writeSafFile(cleanParent, name, content, isBase64);
+      setTimeout(() => this.syncFromNativeStorage(cleanParent, true), 10);
     } else if (this.isNativeStorageAvailable && window.AndroidStorage) {
       const isBase64 = content.startsWith('data:') && content.includes(';base64,');
       window.AndroidStorage.writeFile(path, content, isBase64);
-      this.syncFromNativeStorage(cleanParent);
+      setTimeout(() => this.syncFromNativeStorage(cleanParent, true), 10);
     }
 
     const newFile: FileItem = {
@@ -419,10 +491,10 @@ export class FileManagerService {
 
     if (this.isSafActive() && window.SafStorage) {
       window.SafStorage.createSafDirectory(cleanParent, folderName);
-      this.syncFromNativeStorage(cleanParent);
+      setTimeout(() => this.syncFromNativeStorage(cleanParent, true), 10);
     } else if (this.isNativeStorageAvailable && window.AndroidStorage) {
       window.AndroidStorage.createDirectory(path);
-      this.syncFromNativeStorage(cleanParent);
+      setTimeout(() => this.syncFromNativeStorage(cleanParent, true), 10);
     }
 
     const newFolder: FileItem = {
@@ -455,14 +527,14 @@ export class FileManagerService {
     if (this.isSafActive() && window.SafStorage) {
       window.SafStorage.deleteSafDocument(path);
       const parentDir = path.substring(0, path.lastIndexOf('/')) || this.getNativeRootPath();
-      this.syncFromNativeStorage(parentDir);
+      setTimeout(() => this.syncFromNativeStorage(parentDir, true), 10);
       return true;
     }
 
     if (this.isNativeStorageAvailable && window.AndroidStorage) {
       window.AndroidStorage.deletePath(path);
       const parentDir = path.substring(0, path.lastIndexOf('/'));
-      this.syncFromNativeStorage(parentDir);
+      setTimeout(() => this.syncFromNativeStorage(parentDir, true), 10);
       return true;
     }
 

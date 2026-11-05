@@ -17,6 +17,8 @@ import android.webkit.JavascriptInterface;
 import android.webkit.RenderProcessGoneDetail;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -32,7 +34,9 @@ import org.json.JSONObject;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.Locale;
 
@@ -115,10 +119,19 @@ public class MainActivity extends AppCompatActivity {
                     return "[]";
                 }
 
+                // Sort directories first, then alphabetical, limit to 800 to avoid freezing
+                Arrays.sort(files, (a, b) -> {
+                    if (a.isDirectory() && !b.isDirectory()) return -1;
+                    if (!a.isDirectory() && b.isDirectory()) return 1;
+                    return a.getName().compareToIgnoreCase(b.getName());
+                });
+
                 JSONArray array = new JSONArray();
                 SimpleDateFormat sdf = new SimpleDateFormat("MM/dd HH:mm", Locale.US);
+                int limit = Math.min(files.length, 800);
 
-                for (File file : files) {
+                for (int idx = 0; idx < limit; idx++) {
+                    File file = files[idx];
                     JSONObject obj = new JSONObject();
                     obj.put("name", file.getName());
                     obj.put("path", file.getAbsolutePath());
@@ -136,7 +149,7 @@ public class MainActivity extends AppCompatActivity {
                     else if (ext.equals("glb") || ext.equals("gltf")) type = "glTF";
                     else if (ext.equals("png") || ext.equals("jpg") || ext.equals("jpeg")) type = "Image";
                     else if (ext.equals("json")) type = "JSON";
-                    else if (ext.equals("txt") || ext.equals("md") || ext.equals("sh")) type = "Text";
+                    else if (ext.equals("txt") || ext.equals("md") || ext.equals("sh") || ext.equals("cpp")) type = "Text";
 
                     obj.put("type", type);
                     array.put(obj);
@@ -156,7 +169,8 @@ public class MainActivity extends AppCompatActivity {
                 if (!file.exists() || !file.isFile()) return "";
 
                 long length = file.length();
-                if (length > 100 * 1024 * 1024) { // 100MB safety limit
+                if (length > 40 * 1024 * 1024) { // 40MB limit for Base64 to prevent OOM
+                    Log.w(TAG, "File too large for Base64, should use streaming URI: " + filePath);
                     return "";
                 }
 
@@ -179,7 +193,12 @@ public class MainActivity extends AppCompatActivity {
                 File file = new File(filePath);
                 if (!file.exists() || !file.isFile()) return "";
 
-                byte[] bytes = new byte[(int) file.length()];
+                long length = file.length();
+                if (length > 10 * 1024 * 1024) { // 10MB limit for text strings
+                    return "";
+                }
+
+                byte[] bytes = new byte[(int) length];
                 try (FileInputStream fis = new FileInputStream(file)) {
                     fis.read(bytes);
                     return new String(bytes, "UTF-8");
@@ -292,6 +311,38 @@ public class MainActivity extends AppCompatActivity {
             webView.addJavascriptInterface(safStorageBridge, "SafStorage");
 
             webView.setWebViewClient(new WebViewClient() {
+                @Override
+                public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                    Uri uri = request.getUrl();
+                    if (uri != null) {
+                        String scheme = uri.getScheme();
+                        if ("content".equalsIgnoreCase(scheme)) {
+                            try {
+                                InputStream is = getContentResolver().openInputStream(uri);
+                                String mimeType = getContentResolver().getType(uri);
+                                if (mimeType == null) mimeType = "application/octet-stream";
+                                return new WebResourceResponse(mimeType, "UTF-8", is);
+                            } catch (Exception e) {
+                                Log.e(TAG, "Error intercepting content URI: " + uri, e);
+                            }
+                        } else if ("file".equalsIgnoreCase(scheme)) {
+                            try {
+                                String path = uri.getPath();
+                                if (path != null && !path.startsWith("/android_asset/")) {
+                                    File f = new File(path);
+                                    if (f.exists() && f.isFile()) {
+                                        FileInputStream fis = new FileInputStream(f);
+                                        return new WebResourceResponse("application/octet-stream", "UTF-8", fis);
+                                    }
+                                }
+                            } catch (Exception e) {
+                                Log.e(TAG, "Error intercepting file URI: " + uri, e);
+                            }
+                        }
+                    }
+                    return super.shouldInterceptRequest(view, request);
+                }
+
                 @Override
                 public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
                     Log.e(TAG, "WebView render process gone. Re-creating activity...");

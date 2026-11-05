@@ -83,6 +83,26 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
   const fs = FileManagerService.getInstance();
   const [showNativeStoragePicker, setShowNativeStoragePicker] = useState<boolean>(false);
   const [nativePickerDir, setNativePickerDir] = useState<string>(fs.getNativeRootPath());
+  const [nativePickerFiles, setNativePickerFiles] = useState<FileItem[]>([]);
+  const [isLoadingNativeFiles, setIsLoadingNativeFiles] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (showNativeStoragePicker) {
+      setIsLoadingNativeFiles(true);
+      const timer = setTimeout(() => {
+        try {
+          const list = fs.getFilesByPath(nativePickerDir);
+          setNativePickerFiles(list);
+        } catch (e) {
+          console.warn('Failed to load native picker directory:', e);
+          setNativePickerFiles([]);
+        } finally {
+          setIsLoadingNativeFiles(false);
+        }
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [showNativeStoragePicker, nativePickerDir]);
 
   // UI state
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
@@ -1556,50 +1576,63 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
 
             {/* File & Folder Directory Grid/List */}
             <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 no-scrollbar">
-              {fs.getFilesByPath(nativePickerDir).map((item) => {
-                const is3DModel = item.type === 'VRM' || item.type === 'glTF' || item.name.endsWith('.vrm') || item.name.endsWith('.glb') || item.name.endsWith('.gltf') || item.name.endsWith('.obj') || item.name.endsWith('.json');
+              {isLoadingNativeFiles ? (
+                <div className="p-6 text-center text-cyan-400 font-mono-code text-xs animate-pulse">
+                  Querying directory contents...
+                </div>
+              ) : nativePickerFiles.length === 0 ? (
+                <div className="p-6 text-center text-slate-400 font-mono-code text-xs">
+                  Directory is empty or access pending permission.
+                </div>
+              ) : (
+                nativePickerFiles.map((item) => {
+                  const is3DModel = item.type === 'VRM' || item.type === 'glTF' || item.name.endsWith('.vrm') || item.name.endsWith('.glb') || item.name.endsWith('.gltf') || item.name.endsWith('.obj') || item.name.endsWith('.json');
 
-                return (
-                  <div
-                    key={item.path}
-                    onClick={() => {
-                      if (item.isFolder) {
-                        setNativePickerDir(item.path);
-                      } else if (is3DModel) {
-                        const content = fs.readFileContent(item.path, true);
-                        const url = content.startsWith('data:') ? content : `file://${item.path}`;
-                        loadModelFromUrl(url, item.name);
-                        setShowNativeStoragePicker(false);
-                      }
-                    }}
-                    className={`flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer ${
-                      item.isFolder
-                        ? 'bg-[#071120] border-[#1e293b] hover:border-amber-400/60 hover:bg-[#0e1d36] text-slate-200'
-                        : is3DModel
-                        ? 'bg-[#07182c] border-cyan-500/50 hover:border-cyan-400 hover:bg-[#0d2a4d] text-cyan-200 shadow-[0_0_12px_rgba(56,189,248,0.2)]'
-                        : 'bg-[#050812] border-[#1e293b]/50 text-slate-500 opacity-60'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-2.5 min-w-0 flex-1">
-                      {item.isFolder ? (
-                        <FolderOpen className="w-4 h-4 text-amber-400 shrink-0" />
-                      ) : (
-                        <FileBox className="w-4 h-4 text-cyan-400 shrink-0" />
-                      )}
-                      <span className="font-semibold text-xs truncate">{item.name}</span>
-                    </div>
+                  return (
+                    <div
+                      key={item.path}
+                      onClick={() => {
+                        if (item.isFolder) {
+                          setNativePickerDir(item.path);
+                        } else if (is3DModel) {
+                          const url = item.path.startsWith('content://') || item.path.startsWith('file://')
+                            ? item.path
+                            : item.path.startsWith('/')
+                            ? `file://${item.path}`
+                            : item.path;
+                          loadModelFromUrl(url, item.name);
+                          setShowNativeStoragePicker(false);
+                        }
+                      }}
+                      className={`flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer ${
+                        item.isFolder
+                          ? 'bg-[#071120] border-[#1e293b] hover:border-amber-400/60 hover:bg-[#0e1d36] text-slate-200'
+                          : is3DModel
+                          ? 'bg-[#07182c] border-cyan-500/50 hover:border-cyan-400 hover:bg-[#0d2a4d] text-cyan-200 shadow-[0_0_12px_rgba(56,189,248,0.2)]'
+                          : 'bg-[#050812] border-[#1e293b]/50 text-slate-500 opacity-60'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2.5 min-w-0 flex-1">
+                        {item.isFolder ? (
+                          <FolderOpen className="w-4 h-4 text-amber-400 shrink-0" />
+                        ) : (
+                          <FileBox className="w-4 h-4 text-cyan-400 shrink-0" />
+                        )}
+                        <span className="font-semibold text-xs truncate">{item.name}</span>
+                      </div>
 
-                    <div className="flex items-center space-x-2 shrink-0 font-mono-code text-[10px]">
-                      <span className="text-slate-400">{item.size}</span>
-                      {is3DModel && (
-                        <span className="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-400/40">
-                          LOAD 3D
-                        </span>
-                      )}
+                      <div className="flex items-center space-x-2 shrink-0 font-mono-code text-[10px]">
+                        <span className="text-slate-400">{item.size}</span>
+                        {is3DModel && (
+                          <span className="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-400/40">
+                            LOAD 3D
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
         )}

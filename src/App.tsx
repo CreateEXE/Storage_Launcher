@@ -181,13 +181,14 @@ export default function App() {
     const unsubscribe = fs.subscribe(() => {
       const updated = fs.getFiles();
       setFiles(updated);
-      if (selectedFile) {
-        const stillExists = updated.find((f) => f.path === selectedFile.path);
-        setSelectedFile(stillExists || null);
-      }
+      setSelectedFile((currentSelected) => {
+        if (!currentSelected) return null;
+        const stillExists = updated.find((f) => f.path === currentSelected.path);
+        return stillExists || null;
+      });
     });
     return unsubscribe;
-  }, [selectedFile, fs]);
+  }, [fs]);
 
   // Helper to recursively collect all descendant window IDs in node hierarchy
   const getAllDescendantIds = (rootId: string, allWindows: WindowNode[]): string[] => {

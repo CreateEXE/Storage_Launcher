@@ -11658,6 +11658,19 @@ var CircleAlert = createLucideIcon("circle-alert", [
 * This source code is licensed under the ISC license.
 * See the LICENSE file in the root directory of this source tree.
 */
+var CircleCheckBig = createLucideIcon("circle-check-big", [["path", {
+	d: "M21.801 10A10 10 0 1 1 17 3.335",
+	key: "yps3ct"
+}], ["path", {
+	d: "m9 11 3 3L22 4",
+	key: "1pflzl"
+}]]);
+/**
+* @license lucide-react v0.546.0 - ISC
+*
+* This source code is licensed under the ISC license.
+* See the LICENSE file in the root directory of this source tree.
+*/
 var ClipboardPaste = createLucideIcon("clipboard-paste", [
 	["path", {
 		d: "M11 14h10",
@@ -12041,6 +12054,26 @@ var Flame = createLucideIcon("flame", [["path", {
 * This source code is licensed under the ISC license.
 * See the LICENSE file in the root directory of this source tree.
 */
+var FolderInput = createLucideIcon("folder-input", [
+	["path", {
+		d: "M2 9V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-1",
+		key: "fm4g5t"
+	}],
+	["path", {
+		d: "M2 13h10",
+		key: "pgb2dq"
+	}],
+	["path", {
+		d: "m9 16 3-3-3-3",
+		key: "6m91ic"
+	}]
+]);
+/**
+* @license lucide-react v0.546.0 - ISC
+*
+* This source code is licensed under the ISC license.
+* See the LICENSE file in the root directory of this source tree.
+*/
 var FolderOpen = createLucideIcon("folder-open", [["path", {
 	d: "m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2",
 	key: "usdka0"
@@ -12107,6 +12140,38 @@ var GitFork = createLucideIcon("git-fork", [
 	["path", {
 		d: "M12 12v3",
 		key: "158kv8"
+	}]
+]);
+/**
+* @license lucide-react v0.546.0 - ISC
+*
+* This source code is licensed under the ISC license.
+* See the LICENSE file in the root directory of this source tree.
+*/
+var HardDriveUpload = createLucideIcon("hard-drive-upload", [
+	["path", {
+		d: "m16 6-4-4-4 4",
+		key: "13yo43"
+	}],
+	["path", {
+		d: "M12 2v8",
+		key: "1q4o3n"
+	}],
+	["rect", {
+		width: "20",
+		height: "8",
+		x: "2",
+		y: "14",
+		rx: "2",
+		key: "w68u3i"
+	}],
+	["path", {
+		d: "M6 18h.01",
+		key: "uhywen"
+	}],
+	["path", {
+		d: "M10 18h.01",
+		key: "h775k"
 	}]
 ]);
 /**
@@ -13007,6 +13072,19 @@ var Sparkles = createLucideIcon("sparkles", [
 * This source code is licensed under the ISC license.
 * See the LICENSE file in the root directory of this source tree.
 */
+var SquareCheckBig = createLucideIcon("square-check-big", [["path", {
+	d: "M21 10.656V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12.344",
+	key: "2acyp4"
+}], ["path", {
+	d: "m9 11 3 3L22 4",
+	key: "1pflzl"
+}]]);
+/**
+* @license lucide-react v0.546.0 - ISC
+*
+* This source code is licensed under the ISC license.
+* See the LICENSE file in the root directory of this source tree.
+*/
 var SquareDashed = createLucideIcon("square-dashed", [
 	["path", {
 		d: "M5 3a2 2 0 0 0-2 2",
@@ -13607,7 +13685,7 @@ var DesktopCustomizerModal = ({ isOpen, onClose, customization, onChange }) => {
 											id: "nihonga_live",
 											label: "Live Nihonga Waves & Leaves",
 											desc: "Animated Nihonga painting with falling leaves & undulating waves",
-											preview: "/assets/aistudio/japanese_nihonga_painting_abou__10__19e79978.jpeg",
+											preview: "/assets/system/japanese_nihonga_painting_abou__10__19e79978.jpeg",
 											isLive: true
 										},
 										{
@@ -13621,7 +13699,7 @@ var DesktopCustomizerModal = ({ isOpen, onClose, customization, onChange }) => {
 											id: "nihonga",
 											label: "Static Nihonga Painting",
 											desc: "Authentic starry Nihonga artwork",
-											preview: "/assets/aistudio/japanese_nihonga_painting_abou__10__19e79978.jpeg"
+											preview: "/assets/system/japanese_nihonga_painting_abou__10__19e79978.jpeg"
 										},
 										{
 											id: "midnight",
@@ -14038,7 +14116,7 @@ var LiveWallpaper = ({ wallpaper, customWallpaperUrl, accentColor = "cyan" }) =>
 	}, [wallpaper, accentColor]);
 	const getBaseStyle = () => {
 		if (wallpaper === "nihonga" || wallpaper === "nihonga_live") return {
-			backgroundImage: `url('/assets/aistudio/japanese_nihonga_painting_abou__10__19e79978.jpeg')`,
+			backgroundImage: `url('/assets/system/japanese_nihonga_painting_abou__10__19e79978.jpeg')`,
 			backgroundSize: "cover",
 			backgroundPosition: "center"
 		};
@@ -14052,7 +14130,7 @@ var LiveWallpaper = ({ wallpaper, customWallpaperUrl, accentColor = "cyan" }) =>
 		if (wallpaper === "obsidian") return { background: "linear-gradient(135deg, #090e17 0%, #030508 100%)" };
 		if (wallpaper === "nebula") return { background: "radial-gradient(ellipse at bottom, #2e1065 0%, #080718 60%, #030209 100%)" };
 		return {
-			backgroundImage: `url('/assets/aistudio/japanese_nihonga_painting_abou__10__19e79978.jpeg')`,
+			backgroundImage: `url('/assets/system/japanese_nihonga_painting_abou__10__19e79978.jpeg')`,
 			backgroundSize: "cover",
 			backgroundPosition: "center"
 		};
@@ -68269,6 +68347,1092 @@ var AVATAR_PRESETS = [
 		}
 	}
 ];
+// src/data/mockData.ts
+var INITIAL_FILES = [
+	{
+		id: "f-assets",
+		name: "assets",
+		size: "--",
+		sizeBytes: 0,
+		type: "Folder",
+		modified: "10/20 14:32",
+		isFolder: true,
+		path: "/storage/emulated/0/Projects/Chimera/assets",
+		created: "10/17/2025 14:00"
+	},
+	{
+		id: "f-build",
+		name: "build",
+		size: "--",
+		sizeBytes: 0,
+		type: "Folder",
+		modified: "10/19 22:17",
+		isFolder: true,
+		path: "/storage/emulated/0/Projects/Chimera/build",
+		created: "10/18/2025 09:00"
+	},
+	{
+		id: "f-docs",
+		name: "docs",
+		size: "--",
+		sizeBytes: 0,
+		type: "Folder",
+		modified: "10/18 09:44",
+		isFolder: true,
+		path: "/storage/emulated/0/Projects/Chimera/docs",
+		created: "10/16/2025 11:20"
+	},
+	{
+		id: "f-src",
+		name: "src",
+		size: "--",
+		sizeBytes: 0,
+		type: "Folder",
+		modified: "10/20 11:03",
+		isFolder: true,
+		path: "/storage/emulated/0/Projects/Chimera/src",
+		created: "10/17/2025 10:15"
+	},
+	{
+		id: "f-tools",
+		name: "tools",
+		size: "--",
+		sizeBytes: 0,
+		type: "Folder",
+		modified: "10/17 18:21",
+		isFolder: true,
+		path: "/storage/emulated/0/Projects/Chimera/tools",
+		created: "10/15/2025 18:00"
+	},
+	{
+		id: "f-cmakelists",
+		name: "CMakeLists.txt",
+		size: "2.4 KB",
+		sizeBytes: 2423,
+		type: "Text",
+		modified: "10/17 18:21",
+		isFolder: false,
+		path: "/storage/emulated/0/Projects/Chimera/CMakeLists.txt",
+		dimensions: "N/A",
+		faces: 0,
+		materials: 0,
+		animations: 0,
+		created: "10/17/2025 18:21",
+		content: `cmake_minimum_required(VERSION 3.22.1)
+project("chimera_engine")
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+find_package(OpenGLES REQUIRED)
+find_package(Vulkan REQUIRED)
+
+add_library(chimera SHARED
+    src/main.cpp
+    src/renderer.cpp
+    src/vrm_parser.cpp
+)
+
+target_link_libraries(chimera
+    android
+    log
+    GLESv3
+    EGL
+)`
+	},
+	{
+		id: "f-main-cpp",
+		name: "main.cpp",
+		size: "8.7 KB",
+		sizeBytes: 8873,
+		type: "C++ Source",
+		modified: "10/20 11:02",
+		isFolder: false,
+		path: "/storage/emulated/0/Projects/Chimera/main.cpp",
+		dimensions: "N/A",
+		faces: 0,
+		materials: 0,
+		animations: 0,
+		created: "10/17/2025 18:21",
+		content: `#include <jni.h>
+#include <android/log.h>
+#include <GLES3/gl3.h>
+
+#define TAG "ChimeraNative"
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_termux_gui_ChimeraRenderer_init(JNIEnv* env, jobject thiz, jint width, jint height) {
+    LOGI("Chimera Engine 3D initialized: %dx%d viewport", width, height);
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_termux_gui_ChimeraRenderer_step(JNIEnv* env, jobject thiz) {
+    glClearColor(0.031f, 0.047f, 0.078f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}`
+	},
+	{
+		id: "f-config-json",
+		name: "config.json",
+		size: "1.2 KB",
+		sizeBytes: 1191,
+		type: "JSON",
+		modified: "10/18 12:16",
+		isFolder: false,
+		path: "/storage/emulated/0/Projects/Chimera/config.json",
+		dimensions: "N/A",
+		faces: 0,
+		materials: 0,
+		animations: 0,
+		created: "10/18/2025 12:16",
+		content: `{
+  "target": "arm64-v8a",
+  "optimization": "O3",
+  "renderer": "Vulkan/GLES3",
+  "vrm": {
+    "version": "0.0",
+    "springBones": true,
+    "lookAt": true,
+    "expressionBlend": true
+  },
+  "display": {
+    "fps": 120,
+    "vsync": true,
+    "resolution": "1080x2400"
+  }
+}`
+	},
+	{
+		id: "f-readme",
+		name: "README.md",
+		size: "3.9 KB",
+		sizeBytes: 3941,
+		type: "Markdown",
+		modified: "10/18 09:44",
+		isFolder: false,
+		path: "/storage/emulated/0/Projects/Chimera/README.md",
+		dimensions: "N/A",
+		faces: 0,
+		materials: 0,
+		animations: 0,
+		created: "10/18/2025 09:44",
+		content: `# Chimera Project
+Termux Android Native Storage & Avatar System.
+
+## Architecture
+- VRM 0.0 / glTF 2.0 Realtime Mesh Pipeline
+- Termux CLI bridge with bash session integration
+- Android scoped storage mapper (/storage/emulated/0)
+- Optimized for Mali-G57 MC2 & Dimensity 6300`
+	},
+	{
+		id: "f-vessel-vrm",
+		name: "Vessel.vrm",
+		size: "13.6 MB",
+		sizeBytes: 14260633,
+		type: "VRM",
+		modified: "10/19 16:42",
+		isFolder: false,
+		path: "/storage/emulated/0/Projects/Chimera/VRM_Models/Vessel.vrm",
+		dimensions: "0 x 0 x 0",
+		faces: 42850,
+		materials: 12,
+		animations: 5,
+		created: "10/19/2025 16:42"
+	},
+	{
+		id: "f-cyber-avatar-dat",
+		name: "cyber_avatar.dat",
+		size: "11.8 MB",
+		sizeBytes: 12384910,
+		type: "Binary",
+		modified: "10/22 09:15",
+		isFolder: false,
+		path: "/storage/emulated/0/Projects/Chimera/cyber_avatar.dat",
+		dimensions: "0.4 x 1.6 x 0.3 m",
+		faces: 38400,
+		materials: 10,
+		animations: 4,
+		created: "10/22/2025 09:15",
+		content: "glTF\0\0\0{\"asset\":{\"version\":\"2.0\"},\"extensions\":{\"VRM\":{\"exporterVersion\":\"UniVRM-0.104.0\",\"meta\":{\"title\":\"Cyber Humanoid\",\"author\":\"Chimera Lab\",\"texture\":0}}}}"
+	},
+	{
+		id: "f-character-glb",
+		name: "character.glb",
+		size: "6.8 MB",
+		sizeBytes: 7130316,
+		type: "glTF",
+		modified: "10/19 14:03",
+		isFolder: false,
+		path: "/storage/emulated/0/Projects/Chimera/character.glb",
+		dimensions: "0.8 x 1.7 x 0.4 m",
+		faces: 18420,
+		materials: 8,
+		animations: 3,
+		created: "10/19/2025 14:03"
+	},
+	{
+		id: "f-apk-pkg",
+		name: "app-release.apk",
+		size: "18.4 MB",
+		sizeBytes: 19293798,
+		type: "Binary",
+		modified: "10/21 17:30",
+		isFolder: false,
+		path: "/storage/emulated/0/Projects/Chimera/build/app-release.apk",
+		dimensions: "N/A",
+		faces: 0,
+		materials: 0,
+		animations: 0,
+		created: "10/21/2025 17:30",
+		content: "PK AndroidManifest.xml classes.dex res/mipmap/ic_launcher.png"
+	},
+	{
+		id: "f-run-sh",
+		name: "run.sh",
+		size: "1.1 KB",
+		sizeBytes: 1123,
+		type: "Shell Script",
+		modified: "10/17 19:50",
+		isFolder: false,
+		path: "/storage/emulated/0/Projects/Chimera/run.sh",
+		dimensions: "N/A",
+		faces: 0,
+		materials: 0,
+		animations: 0,
+		created: "10/17/2025 19:50",
+		content: `#!/data/data/com.termux/files/usr/bin/bash
+echo "[+] Starting Chimera Native Environment..."
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:./build
+./build/chimera_bin --vrm ./VRM_Models/Vessel.vrm`
+	}
+];
+var FOLDER_TREE = {
+	name: "/",
+	path: "/",
+	isOpen: true,
+	children: [{
+		name: "storage",
+		path: "/storage",
+		isOpen: true,
+		children: [{
+			name: "emulated",
+			path: "/storage/emulated",
+			isOpen: true,
+			children: [{
+				name: "0",
+				path: "/storage/emulated/0",
+				isOpen: true,
+				children: [
+					{
+						name: "Android",
+						path: "/storage/emulated/0/Android",
+						isOpen: false
+					},
+					{
+						name: "DCIM",
+						path: "/storage/emulated/0/DCIM",
+						isOpen: false
+					},
+					{
+						name: "Download",
+						path: "/storage/emulated/0/Download",
+						isOpen: false
+					},
+					{
+						name: "Movies",
+						path: "/storage/emulated/0/Movies",
+						isOpen: false
+					},
+					{
+						name: "Music",
+						path: "/storage/emulated/0/Music",
+						isOpen: false
+					},
+					{
+						name: "Notifications",
+						path: "/storage/emulated/0/Notifications",
+						isOpen: false
+					},
+					{
+						name: "Pictures",
+						path: "/storage/emulated/0/Pictures",
+						isOpen: false
+					},
+					{
+						name: "Projects",
+						path: "/storage/emulated/0/Projects",
+						isOpen: true,
+						children: [
+							{
+								name: "Chimera",
+								path: "/storage/emulated/0/Projects/Chimera",
+								isOpen: true,
+								isSelected: true,
+								children: [
+									{
+										name: "assets",
+										path: "/storage/emulated/0/Projects/Chimera/assets"
+									},
+									{
+										name: "build",
+										path: "/storage/emulated/0/Projects/Chimera/build"
+									},
+									{
+										name: "docs",
+										path: "/storage/emulated/0/Projects/Chimera/docs"
+									},
+									{
+										name: "src",
+										path: "/storage/emulated/0/Projects/Chimera/src"
+									},
+									{
+										name: "tools",
+										path: "/storage/emulated/0/Projects/Chimera/tools"
+									}
+								]
+							},
+							{
+								name: "VRM_Models",
+								path: "/storage/emulated/0/Projects/VRM_Models"
+							},
+							{
+								name: "Scripts",
+								path: "/storage/emulated/0/Projects/Scripts"
+							}
+						]
+					}
+				]
+			}]
+		}]
+	}]
+};
+var VESSEL_MODEL_DATA = {
+	id: "vessel-vrm",
+	name: "Vessel.vrm",
+	type: "VRM 0.0",
+	size: "13.6 MB",
+	meshes: 4,
+	textures: 12,
+	animations: [
+		{
+			id: "idle",
+			name: "Idle",
+			duration: 3.2,
+			speed: 1
+		},
+		{
+			id: "walk",
+			name: "Walk",
+			duration: 1.6,
+			speed: 1
+		},
+		{
+			id: "run",
+			name: "Run",
+			duration: 1,
+			speed: 1.2
+		},
+		{
+			id: "wave",
+			name: "Wave",
+			duration: 2.4,
+			speed: 1
+		},
+		{
+			id: "dance",
+			name: "Dance",
+			duration: 4.8,
+			speed: 1.1
+		},
+		{
+			id: "sit",
+			name: "Sit",
+			duration: 2,
+			speed: .8
+		},
+		{
+			id: "stand",
+			name: "Stand",
+			duration: 1.5,
+			speed: 1
+		}
+	],
+	materials: [
+		{
+			name: "M_Hair_Cyan",
+			type: "MToon / PBR",
+			roughness: .35,
+			metalness: .1,
+			color: "#68b4f7"
+		},
+		{
+			name: "M_Coat_CyberNavy",
+			type: "PBR Fabric",
+			roughness: .7,
+			metalness: .2,
+			color: "#16233d"
+		},
+		{
+			name: "M_Armor_White",
+			type: "PBR Metal",
+			roughness: .25,
+			metalness: .85,
+			color: "#eef3fa"
+		},
+		{
+			name: "M_Boots_Leather",
+			type: "PBR Glossy",
+			roughness: .3,
+			metalness: .4,
+			color: "#0d131f"
+		},
+		{
+			name: "M_NeonGlow_Cyan",
+			type: "Emissive",
+			roughness: .1,
+			metalness: .9,
+			color: "#38bdf8"
+		}
+	]
+};
+var INITIAL_TERMINAL_OUTPUT = [
+	{
+		type: "input",
+		text: "u0_a328@localhost:~/Projects/Chimera$ ls -la"
+	},
+	{
+		type: "text",
+		text: "total 56"
+	},
+	{
+		type: "dir",
+		text: "drwxrwx--x 6 u0_a328 u0_a328 4096 Oct 20 11:03 ."
+	},
+	{
+		type: "dir",
+		text: "drwx------ 5 u0_a328 u0_a328 4096 Oct 18 09:44 .."
+	},
+	{
+		type: "dir",
+		text: "drwxrwx--x 2 u0_a328 u0_a328 4096 Oct 17 18:21 assets"
+	},
+	{
+		type: "dir",
+		text: "drwxrwx--x 3 u0_a328 u0_a328 4096 Oct 19 22:17 build"
+	},
+	{
+		type: "dir",
+		text: "drwxrwx--x 2 u0_a328 u0_a328 4096 Oct 18 09:44 docs"
+	},
+	{
+		type: "dir",
+		text: "drwxrwx--x 4 u0_a328 u0_a328 4096 Oct 20 11:02 src"
+	},
+	{
+		type: "file",
+		text: "-rw-rw---- 1 u0_a328 u0_a328 2423 Oct 17 18:21 CMakeLists.txt"
+	},
+	{
+		type: "file",
+		text: "-rw-rw---- 1 u0_a328 u0_a328 8873 Oct 20 11:02 main.cpp"
+	},
+	{
+		type: "file",
+		text: "-rw-rw---- 1 u0_a328 u0_a328 1191 Oct 18 12:16 config.json"
+	},
+	{
+		type: "file",
+		text: "-rw-rw---- 1 u0_a328 u0_a328 3941 Oct 18 09:44 README.md"
+	},
+	{
+		type: "exec",
+		text: "-rwxrwx--x 1 u0_a328 u0_a328 1123 Oct 17 19:50 run.sh"
+	}
+];
+// src/services/notificationService.ts
+var NotificationService = class NotificationService {
+	constructor() {
+		this.toasts = [];
+		this.transfers = /* @__PURE__ */ new Map();
+		this.listeners = [];
+	}
+	static getInstance() {
+		if (!NotificationService.instance) NotificationService.instance = new NotificationService();
+		return NotificationService.instance;
+	}
+	subscribe(listener) {
+		this.listeners.push(listener);
+		return () => {
+			this.listeners = this.listeners.filter((l) => l !== listener);
+		};
+	}
+	notify() {
+		this.listeners.forEach((l) => l());
+	}
+	getToasts() {
+		return [...this.toasts];
+	}
+	getTransfers() {
+		return Array.from(this.transfers.values());
+	}
+	addToast(title, message, type = "info", durationMs = 4e3) {
+		const id = `toast_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+		const toast = {
+			id,
+			title,
+			message,
+			type,
+			timestamp: Date.now(),
+			durationMs
+		};
+		this.toasts.push(toast);
+		this.notify();
+		if (durationMs > 0) setTimeout(() => {
+			this.removeToast(id);
+		}, durationMs);
+		return id;
+	}
+	removeToast(id) {
+		const initialLen = this.toasts.length;
+		this.toasts = this.toasts.filter((t) => t.id !== id);
+		if (this.toasts.length < initialLen) this.notify();
+	}
+	startTransfer(fileName, totalBytes) {
+		const id = `transfer_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+		const transfer = {
+			id,
+			fileName,
+			bytesTransferred: 0,
+			totalBytes: Math.max(1, totalBytes),
+			progressPct: 0,
+			speedKbps: 0,
+			startTime: Date.now(),
+			status: "transferring"
+		};
+		this.transfers.set(id, transfer);
+		this.notify();
+		return id;
+	}
+	updateTransferProgress(id, bytesTransferred) {
+		const transfer = this.transfers.get(id);
+		if (!transfer || transfer.status !== "transferring") return;
+		const elapsedSec = Math.max(.1, (Date.now() - transfer.startTime) / 1e3);
+		transfer.bytesTransferred = Math.min(transfer.totalBytes, bytesTransferred);
+		transfer.progressPct = Math.min(100, Math.round(transfer.bytesTransferred / transfer.totalBytes * 100));
+		transfer.speedKbps = Math.round(transfer.bytesTransferred / 1024 / elapsedSec);
+		this.notify();
+	}
+	finishTransfer(id, success, message) {
+		const transfer = this.transfers.get(id);
+		if (!transfer) return;
+		if (success) {
+			transfer.status = "completed";
+			transfer.bytesTransferred = transfer.totalBytes;
+			transfer.progressPct = 100;
+			this.addToast("File Transfer Complete", `'${transfer.fileName}' transferred successfully.`, "success", 3500);
+		} else {
+			transfer.status = "failed";
+			transfer.errorMessage = message || "Transfer failed";
+			this.addToast("File Transfer Failed", `'${transfer.fileName}': ${message || "Error transferring file."}`, "error", 5e3);
+		}
+		this.notify();
+		setTimeout(() => {
+			this.transfers.delete(id);
+			this.notify();
+		}, 5e3);
+	}
+	cancelTransfer(id) {
+		const transfer = this.transfers.get(id);
+		if (!transfer) return;
+		transfer.status = "cancelled";
+		this.addToast("Transfer Cancelled", `Operation for '${transfer.fileName}' was cancelled.`, "warning", 3e3);
+		this.transfers.delete(id);
+		this.notify();
+	}
+};
+// src/services/fileManager.ts
+var STORAGE_KEY = "termux_gui_filesystem_v2";
+var TREE_STORAGE_KEY = "termux_gui_foldertree_v2";
+var FileManagerService = class FileManagerService {
+	constructor() {
+		this.files = [];
+		this.tree = FOLDER_TREE;
+		this.listeners = [];
+		this.undoStack = [];
+		this.redoStack = [];
+		this.maxHistory = 30;
+		this.isNativeStorageAvailable = false;
+		this.isSafAvailable = false;
+		this.currentNativeDirPath = "";
+		this.isSyncing = false;
+		this.isNotifying = false;
+		this.notifyDebounceTimer = null;
+		this.isNativeStorageAvailable = typeof window !== "undefined" && !!window.AndroidStorage;
+		this.isSafAvailable = typeof window !== "undefined" && !!window.SafStorage;
+		if (typeof window !== "undefined") window.onSafPermissionGranted = (treeUri) => {
+			this.currentNativeDirPath = treeUri;
+			this.syncFromNativeStorage(treeUri, true);
+		};
+		this.load();
+		if (this.isSafActive() && window.SafStorage) {
+			this.currentNativeDirPath = window.SafStorage.getPersistedUriString();
+			setTimeout(() => this.syncFromNativeStorage(this.currentNativeDirPath, true), 10);
+		} else if (this.isNativeStorageAvailable && window.AndroidStorage) {
+			this.currentNativeDirPath = window.AndroidStorage.getStorageRootPath();
+			setTimeout(() => this.syncFromNativeStorage(this.currentNativeDirPath, true), 10);
+		}
+	}
+	static getInstance() {
+		if (!FileManagerService.instance) FileManagerService.instance = new FileManagerService();
+		return FileManagerService.instance;
+	}
+	isNativeDeviceStorage() {
+		return this.isNativeStorageAvailable || this.isSafActive();
+	}
+	isSafActive() {
+		return typeof window !== "undefined" && !!window.SafStorage && window.SafStorage.hasPersistedPermission();
+	}
+	openSafPicker() {
+		if (typeof window !== "undefined" && window.SafStorage) window.SafStorage.openDocumentTree();
+		else if (this.isNativeStorageAvailable && window.AndroidStorage) window.AndroidStorage.requestStoragePermission();
+	}
+	getNativeRootPath() {
+		if (this.isSafActive() && window.SafStorage) return window.SafStorage.getPersistedUriString();
+		if (this.isNativeStorageAvailable && window.AndroidStorage) return window.AndroidStorage.getStorageRootPath();
+		return "/storage/emulated/0";
+	}
+	requestNativePermission() {
+		this.openSafPicker();
+	}
+	syncFromNativeStorage(dirPath, shouldNotify = true) {
+		if (this.isSyncing) return this.files;
+		const targetDir = dirPath || this.currentNativeDirPath || this.getNativeRootPath();
+		this.currentNativeDirPath = targetDir;
+		this.isSyncing = true;
+		try {
+			if (this.isSafActive() && window.SafStorage) try {
+				const rawJson = window.SafStorage.listSafDirectory(targetDir);
+				const safFiles = JSON.parse(rawJson || "[]").map((item) => ({
+					id: `saf_${item.uri.replace(/[^a-zA-Z0-9]/g, "_")}`,
+					name: item.name,
+					size: item.isFolder ? "--" : this.formatBytes(item.sizeBytes || 0),
+					sizeBytes: item.sizeBytes || 0,
+					type: item.type || (item.isFolder ? "Folder" : "File"),
+					modified: item.modified || this.formatDate(/* @__PURE__ */ new Date()),
+					isFolder: item.isFolder,
+					path: item.uri,
+					created: item.modified || this.formatDate(/* @__PURE__ */ new Date())
+				}));
+				this.files = safFiles;
+				this.buildTreeFromNativePath(targetDir, safFiles);
+				if (shouldNotify) this.notify();
+				return safFiles;
+			} catch (e) {
+				console.warn("SAF storage sync exception:", e);
+			}
+			if (this.isNativeStorageAvailable && window.AndroidStorage) try {
+				const rawJson = window.AndroidStorage.listDirectory(targetDir);
+				const nativeFiles = JSON.parse(rawJson || "[]").map((item) => ({
+					id: `native_${item.path.replace(/[^a-zA-Z0-9]/g, "_")}`,
+					name: item.name,
+					size: item.isFolder ? "--" : this.formatBytes(item.sizeBytes || 0),
+					sizeBytes: item.sizeBytes || 0,
+					type: item.type || (item.isFolder ? "Folder" : "File"),
+					modified: item.modified || this.formatDate(/* @__PURE__ */ new Date()),
+					isFolder: item.isFolder,
+					path: item.path,
+					created: item.modified || this.formatDate(/* @__PURE__ */ new Date())
+				}));
+				this.files = nativeFiles;
+				this.buildTreeFromNativePath(targetDir, nativeFiles);
+				if (shouldNotify) this.notify();
+				return nativeFiles;
+			} catch (e) {
+				console.warn("Native storage sync exception:", e);
+			}
+		} finally {
+			this.isSyncing = false;
+		}
+		return this.files;
+	}
+	buildTreeFromNativePath(currentDir, currentFiles) {
+		const childrenNodes = currentFiles.filter((f) => f.isFolder).map((f) => ({
+			name: f.name,
+			path: f.path,
+			isOpen: false
+		}));
+		this.tree = {
+			name: this.isSafActive() ? "SAF Storage Tree (/sdcard)" : "Device Storage (/sdcard)",
+			path: currentDir,
+			isOpen: true,
+			children: childrenNodes
+		};
+	}
+	load() {
+		try {
+			const storedFiles = localStorage.getItem(STORAGE_KEY);
+			if (storedFiles) {
+				const parsed = JSON.parse(storedFiles);
+				const currentPaths = new Set(parsed.map((p) => p.path));
+				const missing = INITIAL_FILES.filter((f) => !currentPaths.has(f.path));
+				this.files = [...parsed, ...missing];
+			} else this.files = [...INITIAL_FILES];
+			const storedTree = localStorage.getItem(TREE_STORAGE_KEY);
+			if (storedTree) this.tree = JSON.parse(storedTree);
+			else this.tree = JSON.parse(JSON.stringify(FOLDER_TREE));
+		} catch {
+			this.files = [...INITIAL_FILES];
+			this.tree = JSON.parse(JSON.stringify(FOLDER_TREE));
+		}
+	}
+	save() {
+		try {
+			if (!this.isNativeDeviceStorage()) {
+				localStorage.setItem(STORAGE_KEY, JSON.stringify(this.files));
+				localStorage.setItem(TREE_STORAGE_KEY, JSON.stringify(this.tree));
+			}
+			this.notify();
+		} catch (e) {
+			console.warn("Storage save failed:", e);
+		}
+	}
+	pushHistory(description) {
+		const snapshot = {
+			files: JSON.parse(JSON.stringify(this.files)),
+			tree: JSON.parse(JSON.stringify(this.tree)),
+			description
+		};
+		this.undoStack.push(snapshot);
+		if (this.undoStack.length > this.maxHistory) this.undoStack.shift();
+		this.redoStack = [];
+	}
+	canUndo() {
+		return this.undoStack.length > 0;
+	}
+	canRedo() {
+		return this.redoStack.length > 0;
+	}
+	undo() {
+		if (this.undoStack.length === 0) return null;
+		const currentSnapshot = {
+			files: JSON.parse(JSON.stringify(this.files)),
+			tree: JSON.parse(JSON.stringify(this.tree)),
+			description: "Current State"
+		};
+		this.redoStack.push(currentSnapshot);
+		const previousState = this.undoStack.pop();
+		this.files = previousState.files;
+		this.tree = previousState.tree;
+		this.save();
+		return previousState.description;
+	}
+	redo() {
+		if (this.redoStack.length === 0) return null;
+		const currentSnapshot = {
+			files: JSON.parse(JSON.stringify(this.files)),
+			tree: JSON.parse(JSON.stringify(this.tree)),
+			description: "Current State"
+		};
+		this.undoStack.push(currentSnapshot);
+		const nextState = this.redoStack.pop();
+		this.files = nextState.files;
+		this.tree = nextState.tree;
+		this.save();
+		return nextState.description;
+	}
+	subscribe(listener) {
+		this.listeners.push(listener);
+		return () => {
+			this.listeners = this.listeners.filter((l) => l !== listener);
+		};
+	}
+	notify() {
+		if (this.isNotifying) return;
+		if (this.notifyDebounceTimer) clearTimeout(this.notifyDebounceTimer);
+		this.notifyDebounceTimer = setTimeout(() => {
+			this.isNotifying = true;
+			try {
+				this.listeners.forEach((l) => {
+					try {
+						l();
+					} catch (err) {
+						console.error("Error in fileManager listener:", err);
+					}
+				});
+			} finally {
+				this.isNotifying = false;
+			}
+		}, 40);
+	}
+	getFiles() {
+		return [...this.files];
+	}
+	getTree() {
+		return this.tree;
+	}
+	getFilesByPath(dirPath) {
+		if (this.isSafActive() && window.SafStorage) try {
+			const rawJson = window.SafStorage.listSafDirectory(dirPath);
+			return JSON.parse(rawJson || "[]").map((item) => ({
+				id: `saf_${item.uri.replace(/[^a-zA-Z0-9]/g, "_")}`,
+				name: item.name,
+				size: item.isFolder ? "--" : this.formatBytes(item.sizeBytes || 0),
+				sizeBytes: item.sizeBytes || 0,
+				type: item.type || (item.isFolder ? "Folder" : "File"),
+				modified: item.modified || this.formatDate(/* @__PURE__ */ new Date()),
+				isFolder: item.isFolder,
+				path: item.uri,
+				created: item.modified || this.formatDate(/* @__PURE__ */ new Date())
+			}));
+		} catch (e) {
+			console.warn("Error reading SAF directory in getFilesByPath:", e);
+			return [];
+		}
+		if (this.isNativeStorageAvailable && window.AndroidStorage) try {
+			const rawJson = window.AndroidStorage.listDirectory(dirPath);
+			return JSON.parse(rawJson || "[]").map((item) => ({
+				id: `native_${item.path.replace(/[^a-zA-Z0-9]/g, "_")}`,
+				name: item.name,
+				size: item.isFolder ? "--" : this.formatBytes(item.sizeBytes || 0),
+				sizeBytes: item.sizeBytes || 0,
+				type: item.type || (item.isFolder ? "Folder" : "File"),
+				modified: item.modified || this.formatDate(/* @__PURE__ */ new Date()),
+				isFolder: item.isFolder,
+				path: item.path,
+				created: item.modified || this.formatDate(/* @__PURE__ */ new Date())
+			}));
+		} catch (e) {
+			console.warn("Error reading AndroidStorage directory in getFilesByPath:", e);
+			return [];
+		}
+		const cleanPath = dirPath.replace(/\/+$/, "");
+		return this.files.filter((f) => {
+			return f.path.substring(0, f.path.lastIndexOf("/")) === cleanPath;
+		});
+	}
+	readFileContent(filePath, isBinary = false) {
+		if (isBinary) {
+			if (filePath.startsWith("content://") || filePath.startsWith("file://")) return filePath;
+			if (filePath.startsWith("/")) return `file://${filePath}`;
+		}
+		if (this.isSafActive() && window.SafStorage) {
+			if (isBinary) {
+				const base64 = window.SafStorage.readSafFileAsBase64(filePath);
+				if (!base64) return "";
+				try {
+					return `data:application/octet-stream;base64,${base64}`;
+				} catch {
+					return "";
+				}
+			}
+			return window.SafStorage.readSafFileAsString(filePath);
+		}
+		if (this.isNativeStorageAvailable && window.AndroidStorage) {
+			if (isBinary) {
+				const base64 = window.AndroidStorage.readFileAsBase64(filePath);
+				if (!base64) return "";
+				try {
+					return `data:application/octet-stream;base64,${base64}`;
+				} catch {
+					return "";
+				}
+			}
+			return window.AndroidStorage.readFileAsString(filePath);
+		}
+		return this.files.find((f) => f.path === filePath)?.content || "";
+	}
+	createFile(parentPath, name, type, content = "") {
+		this.pushHistory(`Created file '${name}'`);
+		const cleanParent = parentPath.replace(/\/+$/, "");
+		const path = `${cleanParent}/${name}`;
+		const sizeBytes = new Blob([content]).size;
+		if (this.isSafActive() && window.SafStorage) {
+			const isBase64 = content.startsWith("data:") && content.includes(";base64,");
+			window.SafStorage.writeSafFile(cleanParent, name, content, isBase64);
+			setTimeout(() => this.syncFromNativeStorage(cleanParent, true), 10);
+		} else if (this.isNativeStorageAvailable && window.AndroidStorage) {
+			const isBase64 = content.startsWith("data:") && content.includes(";base64,");
+			window.AndroidStorage.writeFile(path, content, isBase64);
+			setTimeout(() => this.syncFromNativeStorage(cleanParent, true), 10);
+		}
+		const newFile = {
+			id: `file_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+			name,
+			size: this.formatBytes(sizeBytes),
+			sizeBytes,
+			type,
+			modified: this.formatDate(/* @__PURE__ */ new Date()),
+			isFolder: false,
+			path,
+			created: this.formatDate(/* @__PURE__ */ new Date()),
+			content
+		};
+		const existingIdx = this.files.findIndex((f) => f.path === path);
+		if (existingIdx >= 0) this.files[existingIdx] = newFile;
+		else this.files.push(newFile);
+		this.save();
+		return newFile;
+	}
+	createFolder(parentPath, folderName) {
+		this.pushHistory(`Created folder '${folderName}'`);
+		const cleanParent = parentPath.replace(/\/+$/, "");
+		const path = `${cleanParent}/${folderName}`;
+		if (this.isSafActive() && window.SafStorage) {
+			window.SafStorage.createSafDirectory(cleanParent, folderName);
+			setTimeout(() => this.syncFromNativeStorage(cleanParent, true), 10);
+		} else if (this.isNativeStorageAvailable && window.AndroidStorage) {
+			window.AndroidStorage.createDirectory(path);
+			setTimeout(() => this.syncFromNativeStorage(cleanParent, true), 10);
+		}
+		const newFolder = {
+			id: `dir_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+			name: folderName,
+			size: "--",
+			sizeBytes: 0,
+			type: "Folder",
+			modified: this.formatDate(/* @__PURE__ */ new Date()),
+			isFolder: true,
+			path,
+			created: this.formatDate(/* @__PURE__ */ new Date())
+		};
+		if (!this.files.some((f) => f.path === path)) this.files.push(newFolder);
+		this.addNodeToTree(this.tree, cleanParent, folderName, path);
+		this.save();
+		return newFolder;
+	}
+	deleteItem(path) {
+		const item = this.files.find((f) => f.path === path);
+		if (item) this.pushHistory(`Deleted '${item.name}'`);
+		if (this.isSafActive() && window.SafStorage) {
+			window.SafStorage.deleteSafDocument(path);
+			const parentDir = path.substring(0, path.lastIndexOf("/")) || this.getNativeRootPath();
+			setTimeout(() => this.syncFromNativeStorage(parentDir, true), 10);
+			return true;
+		}
+		if (this.isNativeStorageAvailable && window.AndroidStorage) {
+			window.AndroidStorage.deletePath(path);
+			const parentDir = path.substring(0, path.lastIndexOf("/"));
+			setTimeout(() => this.syncFromNativeStorage(parentDir, true), 10);
+			return true;
+		}
+		const initialLen = this.files.length;
+		this.files = this.files.filter((f) => f.path !== path && !f.path.startsWith(`${path}/`));
+		this.removeNodeFromTree(this.tree, path);
+		this.save();
+		return this.files.length < initialLen;
+	}
+	renameItem(oldPath, newName) {
+		const item = this.files.find((f) => f.path === oldPath);
+		if (!item) return false;
+		this.pushHistory(`Renamed '${item.name}' to '${newName}'`);
+		const parent = oldPath.substring(0, oldPath.lastIndexOf("/"));
+		`${parent}${newName}`;
+		const isBinary = item.type === "VRM" || item.type === "glTF" || item.type === "Image";
+		const content = this.readFileContent(oldPath, isBinary);
+		if (content) {
+			this.createFile(parent, newName, item.type, content);
+			this.deleteItem(oldPath);
+			return true;
+		}
+		return true;
+	}
+	downloadFile(file) {
+		const content = file.content || this.readFileContent(file.path, true) || `[Binary payload for ${file.name}]`;
+		const blob = new Blob([content], { type: "application/octet-stream" });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement("a");
+		a.href = url;
+		a.download = file.name;
+		document.body.appendChild(a);
+		a.click();
+		document.body.removeChild(a);
+		URL.revokeObjectURL(url);
+	}
+	async uploadFile(fileObj, targetDir) {
+		const notif = NotificationService.getInstance();
+		const transferId = notif.startTransfer(fileObj.name, fileObj.size);
+		const cleanParent = targetDir.replace(/\/+$/, "");
+		const isBinary = fileObj.name.endsWith(".vrm") || fileObj.name.endsWith(".glb") || fileObj.name.endsWith(".gltf") || fileObj.name.endsWith(".obj") || fileObj.name.endsWith(".png") || fileObj.name.endsWith(".jpg");
+		let content = "";
+		try {
+			if (isBinary) content = await new Promise((resolve, reject) => {
+				const reader = new FileReader();
+				reader.onprogress = (e) => {
+					if (e.lengthComputable) notif.updateTransferProgress(transferId, e.loaded);
+				};
+				reader.onload = () => {
+					notif.updateTransferProgress(transferId, fileObj.size);
+					resolve(reader.result);
+				};
+				reader.onerror = () => reject(reader.error);
+				reader.readAsDataURL(fileObj);
+			});
+			else {
+				content = await fileObj.text();
+				notif.updateTransferProgress(transferId, fileObj.size);
+			}
+			let type = "Text";
+			if (fileObj.name.endsWith(".vrm")) type = "VRM";
+			else if (fileObj.name.endsWith(".glb") || fileObj.name.endsWith(".gltf")) type = "glTF";
+			else if (fileObj.name.endsWith(".json")) type = "JSON";
+			else if (fileObj.name.endsWith(".cpp") || fileObj.name.endsWith(".h")) type = "C++ Source";
+			else if (fileObj.name.endsWith(".sh")) type = "Shell Script";
+			else if (fileObj.name.endsWith(".md")) type = "Markdown";
+			const fileItem = this.createFile(cleanParent, fileObj.name, type, content);
+			notif.finishTransfer(transferId, true);
+			return fileItem;
+		} catch (err) {
+			notif.finishTransfer(transferId, false, err?.message || "Upload error");
+			throw err;
+		}
+	}
+	addNodeToTree(node, parentPath, name, path) {
+		if (node.path === parentPath) {
+			if (!node.children) node.children = [];
+			if (!node.children.some((c) => c.path === path)) node.children.push({
+				name,
+				path,
+				isOpen: false
+			});
+			return true;
+		}
+		if (node.children) {
+			for (const child of node.children) if (this.addNodeToTree(child, parentPath, name, path)) return true;
+		}
+		return false;
+	}
+	removeNodeFromTree(node, path) {
+		if (node.children) {
+			const idx = node.children.findIndex((c) => c.path === path);
+			if (idx >= 0) {
+				node.children.splice(idx, 1);
+				return true;
+			}
+			for (const child of node.children) if (this.removeNodeFromTree(child, path)) return true;
+		}
+		return false;
+	}
+	formatBytes(bytes) {
+		if (bytes === 0) return "0 B";
+		const k = 1024;
+		const sizes = [
+			"B",
+			"KB",
+			"MB",
+			"GB"
+		];
+		const i = Math.floor(Math.log(bytes) / Math.log(k));
+		return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+	}
+	formatDate(d) {
+		return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+	}
+};
 // src/components/Viewer3D.tsx
 var Viewer3D = ({ file, avatarParams = DEFAULT_AVATAR_PARAMS, onAvatarParamsChange, onMinimize, onMaximize, onClose, isMaximized = false, onOpenAvatarEditor, onOpenAnimationStudio }) => {
 	const mountRef = (0, import_react.useRef)(null);
@@ -68280,6 +69444,28 @@ var Viewer3D = ({ file, avatarParams = DEFAULT_AVATAR_PARAMS, onAvatarParamsChan
 	const mixerRef = (0, import_react.useRef)(null);
 	const animationFrameIdRef = (0, import_react.useRef)(null);
 	const fileInputRef = (0, import_react.useRef)(null);
+	const fs = FileManagerService.getInstance();
+	const [showNativeStoragePicker, setShowNativeStoragePicker] = (0, import_react.useState)(false);
+	const [nativePickerDir, setNativePickerDir] = (0, import_react.useState)(fs.getNativeRootPath());
+	const [nativePickerFiles, setNativePickerFiles] = (0, import_react.useState)([]);
+	const [isLoadingNativeFiles, setIsLoadingNativeFiles] = (0, import_react.useState)(false);
+	(0, import_react.useEffect)(() => {
+		if (showNativeStoragePicker) {
+			setIsLoadingNativeFiles(true);
+			const timer = setTimeout(() => {
+				try {
+					const list = fs.getFilesByPath(nativePickerDir);
+					setNativePickerFiles(list);
+				} catch (e) {
+					console.warn("Failed to load native picker directory:", e);
+					setNativePickerFiles([]);
+				} finally {
+					setIsLoadingNativeFiles(false);
+				}
+			}, 0);
+			return () => clearTimeout(timer);
+		}
+	}, [showNativeStoragePicker, nativePickerDir]);
 	const [isPlaying, setIsPlaying] = (0, import_react.useState)(true);
 	const [activeTool, setActiveTool] = (0, import_react.useState)("select");
 	const [snapshotTaken, setSnapshotTaken] = (0, import_react.useState)(false);
@@ -68870,6 +70056,22 @@ var Viewer3D = ({ file, avatarParams = DEFAULT_AVATAR_PARAMS, onAvatarParamsChan
 		};
 		const resizeObserver = new ResizeObserver(handleResize);
 		resizeObserver.observe(container);
+		const canvas = renderer.domElement;
+		const handleContextLost = (e) => {
+			e.preventDefault();
+			console.warn("WebGL Context Lost - Pausing 3D render loop");
+			if (animationFrameIdRef.current) {
+				cancelAnimationFrame(animationFrameIdRef.current);
+				animationFrameIdRef.current = null;
+			}
+		};
+		const handleContextRestored = () => {
+			console.info("WebGL Context Restored - Resuming 3D render loop");
+			clock = new Clock();
+			animationFrameIdRef.current = requestAnimationFrame(animate);
+		};
+		canvas.addEventListener("webglcontextlost", handleContextLost, false);
+		canvas.addEventListener("webglcontextrestored", handleContextRestored, false);
 		let clock = new Clock();
 		let animTime = 0;
 		const animate = () => {
@@ -68877,7 +70079,6 @@ var Viewer3D = ({ file, avatarParams = DEFAULT_AVATAR_PARAMS, onAvatarParamsChan
 			animTime += dt;
 			if (vrmRef.current) {
 				vrmRef.current.update(dt);
-				applySkeletalMorphs(vrmRef.current, avatarParamsRef.current);
 				if (isPlaying && vrmRef.current.humanoid) {
 					const headNode = vrmRef.current.humanoid.getNormalizedBoneNode("head");
 					const chestNode = vrmRef.current.humanoid.getNormalizedBoneNode("chest");
@@ -68898,6 +70099,8 @@ var Viewer3D = ({ file, avatarParams = DEFAULT_AVATAR_PARAMS, onAvatarParamsChan
 		animationFrameIdRef.current = requestAnimationFrame(animate);
 		return () => {
 			if (animationFrameIdRef.current) cancelAnimationFrame(animationFrameIdRef.current);
+			canvas.removeEventListener("webglcontextlost", handleContextLost);
+			canvas.removeEventListener("webglcontextrestored", handleContextRestored);
 			resizeObserver.disconnect();
 			renderer.dispose();
 			if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
@@ -68928,6 +70131,22 @@ var Viewer3D = ({ file, avatarParams = DEFAULT_AVATAR_PARAMS, onAvatarParamsChan
 			const droppedFile = e.dataTransfer.files[0];
 			const blobUrl = URL.createObjectURL(droppedFile);
 			loadModelFromUrl(blobUrl, droppedFile.name);
+			return;
+		}
+		const jsonStr = e.dataTransfer.getData("application/json");
+		const textPath = e.dataTransfer.getData("text/plain");
+		if (jsonStr) try {
+			const item = JSON.parse(jsonStr);
+			const content = fs.readFileContent(item.path, true);
+			const targetUrl = content.startsWith("data:") || content.startsWith("blob:") ? content : `file://${item.path}`;
+			loadModelFromUrl(targetUrl, item.name);
+			return;
+		} catch {}
+		if (textPath) {
+			const fileName = textPath.split("/").pop() || "model.vrm";
+			const content = fs.readFileContent(textPath, true);
+			const targetUrl = content.startsWith("data:") || content.startsWith("blob:") ? content : `file://${textPath}`;
+			loadModelFromUrl(targetUrl, fileName);
 		}
 	};
 	const handleUnloadModel = () => {
@@ -69321,13 +70540,24 @@ var Viewer3D = ({ file, avatarParams = DEFAULT_AVATAR_PARAMS, onAvatarParamsChan
 										" avatar file here, or browse device storage."
 									]
 								}),
-								/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
-									onClick: (e) => {
-										e.stopPropagation();
-										fileInputRef.current?.click();
-									},
-									className: "px-5 py-2 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs flex items-center gap-2 shadow-[0_0_16px_rgba(56,189,248,0.35)] transition-all hover:scale-102 active:scale-98",
-									children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(FolderOpen, { className: "w-4 h-4" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: "Load Avatar File" })]
+								/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+									className: "flex flex-col sm:flex-row items-center gap-2",
+									children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
+										onClick: (e) => {
+											e.stopPropagation();
+											fileInputRef.current?.click();
+										},
+										className: "px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs flex items-center gap-2 shadow-[0_0_16px_rgba(56,189,248,0.35)] transition-all hover:scale-102 active:scale-98",
+										children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(FolderOpen, { className: "w-4 h-4" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: "System File Picker" })]
+									}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
+										onClick: (e) => {
+											e.stopPropagation();
+											if (fs.isNativeDeviceStorage()) setShowNativeStoragePicker(true);
+											else fileInputRef.current?.click();
+										},
+										className: "px-4 py-2 rounded-lg bg-[#0b1b30] hover:bg-[#122a4a] text-cyan-300 border border-cyan-500/50 font-bold text-xs flex items-center gap-2 transition-all hover:scale-102 active:scale-98 shadow-md",
+										children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(HardDrive, { className: "w-4 h-4 text-cyan-400" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: "Browse Device Storage" })]
+									})]
 								}),
 								/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 									className: "flex items-center gap-2 mt-4 text-[10px] text-slate-400 font-mono-code",
@@ -69457,784 +70687,105 @@ var Viewer3D = ({ file, avatarParams = DEFAULT_AVATAR_PARAMS, onAvatarParamsChan
 								})
 							]
 						})]
+					}),
+					showNativeStoragePicker && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+						className: "absolute inset-0 bg-[#030712]/95 backdrop-blur-2xl z-40 p-4 flex flex-col animate-in fade-in duration-200",
+						children: [
+							/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+								className: "flex items-center justify-between pb-3 border-b border-[#1e293b] mb-3",
+								children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+									className: "flex items-center space-x-2",
+									children: [
+										/* @__PURE__ */ (0, import_jsx_runtime.jsx)(HardDrive, { className: "w-5 h-5 text-cyan-400" }),
+										/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+											className: "font-extrabold text-sm text-slate-100 uppercase tracking-wide",
+											children: "Native Storage Model Browser"
+										}),
+										/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+											className: "text-[10px] px-2 py-0.5 rounded bg-[#091b30] text-emerald-400 border border-emerald-500/40 font-mono-code",
+											children: "/sdcard"
+										})
+									]
+								}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
+									onClick: () => setShowNativeStoragePicker(false),
+									className: "p-1 text-slate-400 hover:text-white rounded-lg hover:bg-[#0f172a]",
+									children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(X, { className: "w-4 h-4" })
+								})]
+							}),
+							/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+								className: "flex items-center justify-between bg-[#060c18] border border-[#1e293b] rounded-xl px-3 py-1.5 mb-3 font-mono-code text-xs text-cyan-300",
+								children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+									className: "truncate",
+									children: nativePickerDir
+								}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
+									onClick: () => {
+										const parent = nativePickerDir.substring(0, nativePickerDir.lastIndexOf("/")) || fs.getNativeRootPath();
+										setNativePickerDir(parent);
+									},
+									className: "px-2 py-0.5 bg-[#0e2744] hover:bg-[#163860] border border-cyan-500/40 text-cyan-200 rounded-md text-[10px] shrink-0 ml-2",
+									children: "Up Dir ⬆"
+								})]
+							}),
+							/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+								className: "flex-1 overflow-y-auto space-y-1.5 pr-1 no-scrollbar",
+								children: isLoadingNativeFiles ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+									className: "p-6 text-center text-cyan-400 font-mono-code text-xs animate-pulse",
+									children: "Querying directory contents..."
+								}) : nativePickerFiles.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+									className: "p-6 text-center text-slate-400 font-mono-code text-xs",
+									children: "Directory is empty or access pending permission."
+								}) : nativePickerFiles.map((item) => {
+									const is3DModel = item.type === "VRM" || item.type === "glTF" || item.name.endsWith(".vrm") || item.name.endsWith(".glb") || item.name.endsWith(".gltf") || item.name.endsWith(".obj") || item.name.endsWith(".json");
+									return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+										onClick: () => {
+											if (item.isFolder) setNativePickerDir(item.path);
+											else if (is3DModel) {
+												const url = item.path.startsWith("content://") || item.path.startsWith("file://") ? item.path : item.path.startsWith("/") ? `file://${item.path}` : item.path;
+												loadModelFromUrl(url, item.name);
+												setShowNativeStoragePicker(false);
+											}
+										},
+										className: `flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer ${item.isFolder ? "bg-[#071120] border-[#1e293b] hover:border-amber-400/60 hover:bg-[#0e1d36] text-slate-200" : is3DModel ? "bg-[#07182c] border-cyan-500/50 hover:border-cyan-400 hover:bg-[#0d2a4d] text-cyan-200 shadow-[0_0_12px_rgba(56,189,248,0.2)]" : "bg-[#050812] border-[#1e293b]/50 text-slate-500 opacity-60"}`,
+										children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+											className: "flex items-center space-x-2.5 min-w-0 flex-1",
+											children: [item.isFolder ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FolderOpen, { className: "w-4 h-4 text-amber-400 shrink-0" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FileBox, { className: "w-4 h-4 text-cyan-400 shrink-0" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+												className: "font-semibold text-xs truncate",
+												children: item.name
+											})]
+										}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+											className: "flex items-center space-x-2 shrink-0 font-mono-code text-[10px]",
+											children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+												className: "text-slate-400",
+												children: item.size
+											}), is3DModel && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+												className: "px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-400/40",
+												children: "LOAD 3D"
+											})]
+										})]
+									}, item.path);
+								})
+							})
+						]
 					})
 				]
 			})
 		]
 	});
 };
-// src/data/mockData.ts
-var INITIAL_FILES = [
-	{
-		id: "f-assets",
-		name: "assets",
-		size: "--",
-		sizeBytes: 0,
-		type: "Folder",
-		modified: "10/20 14:32",
-		isFolder: true,
-		path: "/storage/emulated/0/Projects/Chimera/assets",
-		created: "10/17/2025 14:00"
-	},
-	{
-		id: "f-build",
-		name: "build",
-		size: "--",
-		sizeBytes: 0,
-		type: "Folder",
-		modified: "10/19 22:17",
-		isFolder: true,
-		path: "/storage/emulated/0/Projects/Chimera/build",
-		created: "10/18/2025 09:00"
-	},
-	{
-		id: "f-docs",
-		name: "docs",
-		size: "--",
-		sizeBytes: 0,
-		type: "Folder",
-		modified: "10/18 09:44",
-		isFolder: true,
-		path: "/storage/emulated/0/Projects/Chimera/docs",
-		created: "10/16/2025 11:20"
-	},
-	{
-		id: "f-src",
-		name: "src",
-		size: "--",
-		sizeBytes: 0,
-		type: "Folder",
-		modified: "10/20 11:03",
-		isFolder: true,
-		path: "/storage/emulated/0/Projects/Chimera/src",
-		created: "10/17/2025 10:15"
-	},
-	{
-		id: "f-tools",
-		name: "tools",
-		size: "--",
-		sizeBytes: 0,
-		type: "Folder",
-		modified: "10/17 18:21",
-		isFolder: true,
-		path: "/storage/emulated/0/Projects/Chimera/tools",
-		created: "10/15/2025 18:00"
-	},
-	{
-		id: "f-cmakelists",
-		name: "CMakeLists.txt",
-		size: "2.4 KB",
-		sizeBytes: 2423,
-		type: "Text",
-		modified: "10/17 18:21",
-		isFolder: false,
-		path: "/storage/emulated/0/Projects/Chimera/CMakeLists.txt",
-		dimensions: "N/A",
-		faces: 0,
-		materials: 0,
-		animations: 0,
-		created: "10/17/2025 18:21",
-		content: `cmake_minimum_required(VERSION 3.22.1)
-project("chimera_engine")
-
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-find_package(OpenGLES REQUIRED)
-find_package(Vulkan REQUIRED)
-
-add_library(chimera SHARED
-    src/main.cpp
-    src/renderer.cpp
-    src/vrm_parser.cpp
-)
-
-target_link_libraries(chimera
-    android
-    log
-    GLESv3
-    EGL
-)`
-	},
-	{
-		id: "f-main-cpp",
-		name: "main.cpp",
-		size: "8.7 KB",
-		sizeBytes: 8873,
-		type: "C++ Source",
-		modified: "10/20 11:02",
-		isFolder: false,
-		path: "/storage/emulated/0/Projects/Chimera/main.cpp",
-		dimensions: "N/A",
-		faces: 0,
-		materials: 0,
-		animations: 0,
-		created: "10/17/2025 18:21",
-		content: `#include <jni.h>
-#include <android/log.h>
-#include <GLES3/gl3.h>
-
-#define TAG "ChimeraNative"
-#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
-
-extern "C" JNIEXPORT void JNICALL
-Java_com_termux_gui_ChimeraRenderer_init(JNIEnv* env, jobject thiz, jint width, jint height) {
-    LOGI("Chimera Engine 3D initialized: %dx%d viewport", width, height);
-    glEnable(GL_DEPTH_TEST);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-}
-
-extern "C" JNIEXPORT void JNICALL
-Java_com_termux_gui_ChimeraRenderer_step(JNIEnv* env, jobject thiz) {
-    glClearColor(0.031f, 0.047f, 0.078f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-}`
-	},
-	{
-		id: "f-config-json",
-		name: "config.json",
-		size: "1.2 KB",
-		sizeBytes: 1191,
-		type: "JSON",
-		modified: "10/18 12:16",
-		isFolder: false,
-		path: "/storage/emulated/0/Projects/Chimera/config.json",
-		dimensions: "N/A",
-		faces: 0,
-		materials: 0,
-		animations: 0,
-		created: "10/18/2025 12:16",
-		content: `{
-  "target": "arm64-v8a",
-  "optimization": "O3",
-  "renderer": "Vulkan/GLES3",
-  "vrm": {
-    "version": "0.0",
-    "springBones": true,
-    "lookAt": true,
-    "expressionBlend": true
-  },
-  "display": {
-    "fps": 120,
-    "vsync": true,
-    "resolution": "1080x2400"
-  }
-}`
-	},
-	{
-		id: "f-readme",
-		name: "README.md",
-		size: "3.9 KB",
-		sizeBytes: 3941,
-		type: "Markdown",
-		modified: "10/18 09:44",
-		isFolder: false,
-		path: "/storage/emulated/0/Projects/Chimera/README.md",
-		dimensions: "N/A",
-		faces: 0,
-		materials: 0,
-		animations: 0,
-		created: "10/18/2025 09:44",
-		content: `# Chimera Project
-Termux Android Native Storage & Avatar System.
-
-## Architecture
-- VRM 0.0 / glTF 2.0 Realtime Mesh Pipeline
-- Termux CLI bridge with bash session integration
-- Android scoped storage mapper (/storage/emulated/0)
-- Optimized for Mali-G57 MC2 & Dimensity 6300`
-	},
-	{
-		id: "f-vessel-vrm",
-		name: "Vessel.vrm",
-		size: "13.6 MB",
-		sizeBytes: 14260633,
-		type: "VRM",
-		modified: "10/19 16:42",
-		isFolder: false,
-		path: "/storage/emulated/0/Projects/Chimera/VRM_Models/Vessel.vrm",
-		dimensions: "0 x 0 x 0",
-		faces: 42850,
-		materials: 12,
-		animations: 5,
-		created: "10/19/2025 16:42"
-	},
-	{
-		id: "f-cyber-avatar-dat",
-		name: "cyber_avatar.dat",
-		size: "11.8 MB",
-		sizeBytes: 12384910,
-		type: "Binary",
-		modified: "10/22 09:15",
-		isFolder: false,
-		path: "/storage/emulated/0/Projects/Chimera/cyber_avatar.dat",
-		dimensions: "0.4 x 1.6 x 0.3 m",
-		faces: 38400,
-		materials: 10,
-		animations: 4,
-		created: "10/22/2025 09:15",
-		content: "glTF\0\0\0{\"asset\":{\"version\":\"2.0\"},\"extensions\":{\"VRM\":{\"exporterVersion\":\"UniVRM-0.104.0\",\"meta\":{\"title\":\"Cyber Humanoid\",\"author\":\"Chimera Lab\",\"texture\":0}}}}"
-	},
-	{
-		id: "f-character-glb",
-		name: "character.glb",
-		size: "6.8 MB",
-		sizeBytes: 7130316,
-		type: "glTF",
-		modified: "10/19 14:03",
-		isFolder: false,
-		path: "/storage/emulated/0/Projects/Chimera/character.glb",
-		dimensions: "0.8 x 1.7 x 0.4 m",
-		faces: 18420,
-		materials: 8,
-		animations: 3,
-		created: "10/19/2025 14:03"
-	},
-	{
-		id: "f-apk-pkg",
-		name: "app-release.apk",
-		size: "18.4 MB",
-		sizeBytes: 19293798,
-		type: "Binary",
-		modified: "10/21 17:30",
-		isFolder: false,
-		path: "/storage/emulated/0/Projects/Chimera/build/app-release.apk",
-		dimensions: "N/A",
-		faces: 0,
-		materials: 0,
-		animations: 0,
-		created: "10/21/2025 17:30",
-		content: "PK AndroidManifest.xml classes.dex res/mipmap/ic_launcher.png"
-	},
-	{
-		id: "f-run-sh",
-		name: "run.sh",
-		size: "1.1 KB",
-		sizeBytes: 1123,
-		type: "Shell Script",
-		modified: "10/17 19:50",
-		isFolder: false,
-		path: "/storage/emulated/0/Projects/Chimera/run.sh",
-		dimensions: "N/A",
-		faces: 0,
-		materials: 0,
-		animations: 0,
-		created: "10/17/2025 19:50",
-		content: `#!/data/data/com.termux/files/usr/bin/bash
-echo "[+] Starting Chimera Native Environment..."
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:./build
-./build/chimera_bin --vrm ./VRM_Models/Vessel.vrm`
-	}
-];
-var FOLDER_TREE = {
-	name: "/",
-	path: "/",
-	isOpen: true,
-	children: [{
-		name: "storage",
-		path: "/storage",
-		isOpen: true,
-		children: [{
-			name: "emulated",
-			path: "/storage/emulated",
-			isOpen: true,
-			children: [{
-				name: "0",
-				path: "/storage/emulated/0",
-				isOpen: true,
-				children: [
-					{
-						name: "Android",
-						path: "/storage/emulated/0/Android",
-						isOpen: false
-					},
-					{
-						name: "DCIM",
-						path: "/storage/emulated/0/DCIM",
-						isOpen: false
-					},
-					{
-						name: "Download",
-						path: "/storage/emulated/0/Download",
-						isOpen: false
-					},
-					{
-						name: "Movies",
-						path: "/storage/emulated/0/Movies",
-						isOpen: false
-					},
-					{
-						name: "Music",
-						path: "/storage/emulated/0/Music",
-						isOpen: false
-					},
-					{
-						name: "Notifications",
-						path: "/storage/emulated/0/Notifications",
-						isOpen: false
-					},
-					{
-						name: "Pictures",
-						path: "/storage/emulated/0/Pictures",
-						isOpen: false
-					},
-					{
-						name: "Projects",
-						path: "/storage/emulated/0/Projects",
-						isOpen: true,
-						children: [
-							{
-								name: "Chimera",
-								path: "/storage/emulated/0/Projects/Chimera",
-								isOpen: true,
-								isSelected: true,
-								children: [
-									{
-										name: "assets",
-										path: "/storage/emulated/0/Projects/Chimera/assets"
-									},
-									{
-										name: "build",
-										path: "/storage/emulated/0/Projects/Chimera/build"
-									},
-									{
-										name: "docs",
-										path: "/storage/emulated/0/Projects/Chimera/docs"
-									},
-									{
-										name: "src",
-										path: "/storage/emulated/0/Projects/Chimera/src"
-									},
-									{
-										name: "tools",
-										path: "/storage/emulated/0/Projects/Chimera/tools"
-									}
-								]
-							},
-							{
-								name: "VRM_Models",
-								path: "/storage/emulated/0/Projects/VRM_Models"
-							},
-							{
-								name: "Scripts",
-								path: "/storage/emulated/0/Projects/Scripts"
-							}
-						]
-					}
-				]
-			}]
-		}]
-	}]
-};
-var VESSEL_MODEL_DATA = {
-	id: "vessel-vrm",
-	name: "Vessel.vrm",
-	type: "VRM 0.0",
-	size: "13.6 MB",
-	meshes: 4,
-	textures: 12,
-	animations: [
-		{
-			id: "idle",
-			name: "Idle",
-			duration: 3.2,
-			speed: 1
-		},
-		{
-			id: "walk",
-			name: "Walk",
-			duration: 1.6,
-			speed: 1
-		},
-		{
-			id: "run",
-			name: "Run",
-			duration: 1,
-			speed: 1.2
-		},
-		{
-			id: "wave",
-			name: "Wave",
-			duration: 2.4,
-			speed: 1
-		},
-		{
-			id: "dance",
-			name: "Dance",
-			duration: 4.8,
-			speed: 1.1
-		},
-		{
-			id: "sit",
-			name: "Sit",
-			duration: 2,
-			speed: .8
-		},
-		{
-			id: "stand",
-			name: "Stand",
-			duration: 1.5,
-			speed: 1
-		}
-	],
-	materials: [
-		{
-			name: "M_Hair_Cyan",
-			type: "MToon / PBR",
-			roughness: .35,
-			metalness: .1,
-			color: "#68b4f7"
-		},
-		{
-			name: "M_Coat_CyberNavy",
-			type: "PBR Fabric",
-			roughness: .7,
-			metalness: .2,
-			color: "#16233d"
-		},
-		{
-			name: "M_Armor_White",
-			type: "PBR Metal",
-			roughness: .25,
-			metalness: .85,
-			color: "#eef3fa"
-		},
-		{
-			name: "M_Boots_Leather",
-			type: "PBR Glossy",
-			roughness: .3,
-			metalness: .4,
-			color: "#0d131f"
-		},
-		{
-			name: "M_NeonGlow_Cyan",
-			type: "Emissive",
-			roughness: .1,
-			metalness: .9,
-			color: "#38bdf8"
-		}
-	]
-};
-var INITIAL_TERMINAL_OUTPUT = [
-	{
-		type: "input",
-		text: "u0_a328@localhost:~/Projects/Chimera$ ls -la"
-	},
-	{
-		type: "text",
-		text: "total 56"
-	},
-	{
-		type: "dir",
-		text: "drwxrwx--x 6 u0_a328 u0_a328 4096 Oct 20 11:03 ."
-	},
-	{
-		type: "dir",
-		text: "drwx------ 5 u0_a328 u0_a328 4096 Oct 18 09:44 .."
-	},
-	{
-		type: "dir",
-		text: "drwxrwx--x 2 u0_a328 u0_a328 4096 Oct 17 18:21 assets"
-	},
-	{
-		type: "dir",
-		text: "drwxrwx--x 3 u0_a328 u0_a328 4096 Oct 19 22:17 build"
-	},
-	{
-		type: "dir",
-		text: "drwxrwx--x 2 u0_a328 u0_a328 4096 Oct 18 09:44 docs"
-	},
-	{
-		type: "dir",
-		text: "drwxrwx--x 4 u0_a328 u0_a328 4096 Oct 20 11:02 src"
-	},
-	{
-		type: "file",
-		text: "-rw-rw---- 1 u0_a328 u0_a328 2423 Oct 17 18:21 CMakeLists.txt"
-	},
-	{
-		type: "file",
-		text: "-rw-rw---- 1 u0_a328 u0_a328 8873 Oct 20 11:02 main.cpp"
-	},
-	{
-		type: "file",
-		text: "-rw-rw---- 1 u0_a328 u0_a328 1191 Oct 18 12:16 config.json"
-	},
-	{
-		type: "file",
-		text: "-rw-rw---- 1 u0_a328 u0_a328 3941 Oct 18 09:44 README.md"
-	},
-	{
-		type: "exec",
-		text: "-rwxrwx--x 1 u0_a328 u0_a328 1123 Oct 17 19:50 run.sh"
-	}
-];
-// src/services/fileManager.ts
-var STORAGE_KEY = "termux_gui_filesystem_v2";
-var TREE_STORAGE_KEY = "termux_gui_foldertree_v2";
-var FileManagerService = class FileManagerService {
-	constructor() {
-		this.files = [];
-		this.tree = FOLDER_TREE;
-		this.listeners = [];
-		this.undoStack = [];
-		this.redoStack = [];
-		this.maxHistory = 30;
-		this.load();
-	}
-	static getInstance() {
-		if (!FileManagerService.instance) FileManagerService.instance = new FileManagerService();
-		return FileManagerService.instance;
-	}
-	load() {
-		try {
-			const storedFiles = localStorage.getItem(STORAGE_KEY);
-			if (storedFiles) {
-				const parsed = JSON.parse(storedFiles);
-				const currentPaths = new Set(parsed.map((p) => p.path));
-				const missing = INITIAL_FILES.filter((f) => !currentPaths.has(f.path));
-				this.files = [...parsed, ...missing];
-			} else {
-				this.files = [...INITIAL_FILES];
-				this.save();
-			}
-			const storedTree = localStorage.getItem(TREE_STORAGE_KEY);
-			if (storedTree) this.tree = JSON.parse(storedTree);
-			else this.tree = JSON.parse(JSON.stringify(FOLDER_TREE));
-		} catch {
-			this.files = [...INITIAL_FILES];
-			this.tree = JSON.parse(JSON.stringify(FOLDER_TREE));
-		}
-	}
-	save() {
-		try {
-			localStorage.setItem(STORAGE_KEY, JSON.stringify(this.files));
-			localStorage.setItem(TREE_STORAGE_KEY, JSON.stringify(this.tree));
-			this.notify();
-		} catch (e) {
-			console.warn("Storage save failed:", e);
-		}
-	}
-	pushHistory(description) {
-		const snapshot = {
-			files: JSON.parse(JSON.stringify(this.files)),
-			tree: JSON.parse(JSON.stringify(this.tree)),
-			description
-		};
-		this.undoStack.push(snapshot);
-		if (this.undoStack.length > this.maxHistory) this.undoStack.shift();
-		this.redoStack = [];
-	}
-	canUndo() {
-		return this.undoStack.length > 0;
-	}
-	canRedo() {
-		return this.redoStack.length > 0;
-	}
-	undo() {
-		if (this.undoStack.length === 0) return null;
-		const currentSnapshot = {
-			files: JSON.parse(JSON.stringify(this.files)),
-			tree: JSON.parse(JSON.stringify(this.tree)),
-			description: "Current State"
-		};
-		this.redoStack.push(currentSnapshot);
-		const previousState = this.undoStack.pop();
-		this.files = previousState.files;
-		this.tree = previousState.tree;
-		this.save();
-		return previousState.description;
-	}
-	redo() {
-		if (this.redoStack.length === 0) return null;
-		const currentSnapshot = {
-			files: JSON.parse(JSON.stringify(this.files)),
-			tree: JSON.parse(JSON.stringify(this.tree)),
-			description: "Current State"
-		};
-		this.undoStack.push(currentSnapshot);
-		const nextState = this.redoStack.pop();
-		this.files = nextState.files;
-		this.tree = nextState.tree;
-		this.save();
-		return nextState.description;
-	}
-	subscribe(listener) {
-		this.listeners.push(listener);
-		return () => {
-			this.listeners = this.listeners.filter((l) => l !== listener);
-		};
-	}
-	notify() {
-		this.listeners.forEach((l) => l());
-	}
-	getFiles() {
-		return [...this.files];
-	}
-	getTree() {
-		return this.tree;
-	}
-	getFilesByPath(dirPath) {
-		const cleanPath = dirPath.replace(/\/+$/, "");
-		return this.files.filter((f) => {
-			return f.path.substring(0, f.path.lastIndexOf("/")) === cleanPath;
-		});
-	}
-	createFile(parentPath, name, type, content = "") {
-		this.pushHistory(`Created file '${name}'`);
-		const path = `${parentPath.replace(/\/+$/, "")}/${name}`;
-		const sizeBytes = new Blob([content]).size;
-		const newFile = {
-			id: `file_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-			name,
-			size: this.formatBytes(sizeBytes),
-			sizeBytes,
-			type,
-			modified: this.formatDate(/* @__PURE__ */ new Date()),
-			isFolder: false,
-			path,
-			created: this.formatDate(/* @__PURE__ */ new Date()),
-			content
-		};
-		const existingIdx = this.files.findIndex((f) => f.path === path);
-		if (existingIdx >= 0) this.files[existingIdx] = newFile;
-		else this.files.push(newFile);
-		this.save();
-		return newFile;
-	}
-	createFolder(parentPath, folderName) {
-		this.pushHistory(`Created folder '${folderName}'`);
-		const cleanParent = parentPath.replace(/\/+$/, "");
-		const path = `${cleanParent}/${folderName}`;
-		const newFolder = {
-			id: `dir_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-			name: folderName,
-			size: "--",
-			sizeBytes: 0,
-			type: "Folder",
-			modified: this.formatDate(/* @__PURE__ */ new Date()),
-			isFolder: true,
-			path,
-			created: this.formatDate(/* @__PURE__ */ new Date())
-		};
-		if (!this.files.some((f) => f.path === path)) this.files.push(newFolder);
-		this.addNodeToTree(this.tree, cleanParent, folderName, path);
-		this.save();
-		return newFolder;
-	}
-	deleteItem(path) {
-		const item = this.files.find((f) => f.path === path);
-		if (!item) return false;
-		this.pushHistory(`Deleted '${item.name}'`);
-		const initialLen = this.files.length;
-		this.files = this.files.filter((f) => f.path !== path && !f.path.startsWith(`${path}/`));
-		this.removeNodeFromTree(this.tree, path);
-		this.save();
-		return this.files.length < initialLen;
-	}
-	renameItem(oldPath, newName) {
-		const item = this.files.find((f) => f.path === oldPath);
-		if (!item) return false;
-		this.pushHistory(`Renamed '${item.name}' to '${newName}'`);
-		const newPath = `${oldPath.substring(0, oldPath.lastIndexOf("/"))}/${newName}`;
-		item.name = newName;
-		item.path = newPath;
-		item.modified = this.formatDate(/* @__PURE__ */ new Date());
-		if (item.isFolder) this.files.forEach((f) => {
-			if (f.path.startsWith(`${oldPath}/`)) f.path = f.path.replace(oldPath, newPath);
-		});
-		this.save();
-		return true;
-	}
-	downloadFile(file) {
-		const content = file.content || `[Binary payload for ${file.name}]`;
-		const blob = new Blob([content], { type: "application/octet-stream" });
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement("a");
-		a.href = url;
-		a.download = file.name;
-		document.body.appendChild(a);
-		a.click();
-		document.body.removeChild(a);
-		URL.revokeObjectURL(url);
-	}
-	async uploadFile(fileObj, targetDir) {
-		const cleanParent = targetDir.replace(/\/+$/, "");
-		const isBinary = fileObj.name.endsWith(".vrm") || fileObj.name.endsWith(".glb") || fileObj.name.endsWith(".gltf") || fileObj.name.endsWith(".obj") || fileObj.name.endsWith(".png") || fileObj.name.endsWith(".jpg");
-		let content = "";
-		if (isBinary) content = await new Promise((resolve, reject) => {
-			const reader = new FileReader();
-			reader.onload = () => resolve(reader.result);
-			reader.onerror = () => reject(reader.error);
-			reader.readAsDataURL(fileObj);
-		});
-		else content = await fileObj.text();
-		let type = "Text";
-		if (fileObj.name.endsWith(".vrm")) type = "VRM";
-		else if (fileObj.name.endsWith(".glb") || fileObj.name.endsWith(".gltf")) type = "glTF";
-		else if (fileObj.name.endsWith(".json")) type = "JSON";
-		else if (fileObj.name.endsWith(".cpp") || fileObj.name.endsWith(".h")) type = "C++ Source";
-		else if (fileObj.name.endsWith(".sh")) type = "Shell Script";
-		else if (fileObj.name.endsWith(".md")) type = "Markdown";
-		return this.createFile(cleanParent, fileObj.name, type, content);
-	}
-	addNodeToTree(node, parentPath, name, path) {
-		if (node.path === parentPath) {
-			if (!node.children) node.children = [];
-			if (!node.children.some((c) => c.path === path)) node.children.push({
-				name,
-				path,
-				isOpen: false
-			});
-			return true;
-		}
-		if (node.children) {
-			for (const child of node.children) if (this.addNodeToTree(child, parentPath, name, path)) return true;
-		}
-		return false;
-	}
-	removeNodeFromTree(node, path) {
-		if (node.children) {
-			const idx = node.children.findIndex((c) => c.path === path);
-			if (idx >= 0) {
-				node.children.splice(idx, 1);
-				return true;
-			}
-			for (const child of node.children) if (this.removeNodeFromTree(child, path)) return true;
-		}
-		return false;
-	}
-	formatBytes(bytes) {
-		if (bytes === 0) return "0 B";
-		const k = 1024;
-		const sizes = [
-			"B",
-			"KB",
-			"MB",
-			"GB"
-		];
-		const i = Math.floor(Math.log(bytes) / Math.log(k));
-		return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
-	}
-	formatDate(d) {
-		return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-	}
-};
 // src/components/FileExplorer.tsx
 var FileExplorer = ({ files, selectedFile, onSelectFile, onOpenFile, onContextMenuFile, onMinimize, onMaximize, onClose, isMaximized = false }) => {
-	const [currentPath, setCurrentPath] = (0, import_react.useState)("/storage/emulated/0/Projects/Chimera");
+	const fs = FileManagerService.getInstance();
+	const [currentPath, setCurrentPath] = (0, import_react.useState)(fs.getNativeRootPath());
 	const [searchQuery, setSearchQuery] = (0, import_react.useState)("");
 	const [viewMode, setViewMode] = (0, import_react.useState)("list");
 	const [expandedFolders, setExpandedFolders] = (0, import_react.useState)({
 		"/": true,
 		"/storage": true,
 		"/storage/emulated": true,
-		"/storage/emulated/0": true,
-		"/storage/emulated/0/Projects": true,
-		"/storage/emulated/0/Projects/Chimera": true
+		"/storage/emulated/0": true
 	});
 	const [showSearchInput, setShowSearchInput] = (0, import_react.useState)(false);
+	const [selectedFileIds, setSelectedFileIds] = (0, import_react.useState)(/* @__PURE__ */ new Set());
 	const [isCreatingFile, setIsCreatingFile] = (0, import_react.useState)(false);
 	const [isCreatingFolder, setIsCreatingFolder] = (0, import_react.useState)(false);
 	const [isRenaming, setIsRenaming] = (0, import_react.useState)(false);
@@ -70247,7 +70798,6 @@ var FileExplorer = ({ files, selectedFile, onSelectFile, onOpenFile, onContextMe
 		x: 0,
 		y: 0
 	});
-	const fs = FileManagerService.getInstance();
 	const [canUndo, setCanUndo] = (0, import_react.useState)(fs.canUndo());
 	const [canRedo, setCanRedo] = (0, import_react.useState)(fs.canRedo());
 	(0, import_react.useEffect)(() => {
@@ -70364,9 +70914,6 @@ var FileExplorer = ({ files, selectedFile, onSelectFile, onOpenFile, onContextMe
 		onSelectFile(await fs.uploadFile(file, currentPath));
 		showNotification(`Uploaded ${file.name}`);
 	};
-	const handleSetDefault = () => {
-		alert("Termux GUI is registered as default scoped storage provider (/storage/emulated/0). Android intent action: android.intent.action.VIEW & GET_CONTENT.");
-	};
 	const renderTreeNode = (node, depth = 0) => {
 		const isExpanded = !!expandedFolders[node.path];
 		const isSelected = currentPath === node.path;
@@ -70392,11 +70939,56 @@ var FileExplorer = ({ files, selectedFile, onSelectFile, onOpenFile, onContextMe
 			}), hasChildren && isExpanded && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { children: node.children.map((child) => renderTreeNode(child, depth + 1)) })]
 		}, node.path);
 	};
+	(0, import_react.useEffect)(() => {
+		if (fs.isNativeDeviceStorage()) fs.syncFromNativeStorage(currentPath, true);
+	}, [currentPath]);
 	const visibleFiles = files.filter((f) => {
-		const inCurrentDir = f.path.substring(0, f.path.lastIndexOf("/")) === currentPath.replace(/\/+$/, "") || f.path === currentPath;
-		const matchesSearch = f.name.toLowerCase().includes(searchQuery.toLowerCase());
-		return inCurrentDir && matchesSearch;
+		const matchesSearch = searchQuery.trim() ? f.name.toLowerCase().includes(searchQuery.toLowerCase()) : true;
+		if (fs.isNativeDeviceStorage()) return matchesSearch;
+		return (f.path.substring(0, f.path.lastIndexOf("/")) === currentPath.replace(/\/+$/, "") || f.path === currentPath) && matchesSearch;
 	});
+	const toggleSelectFile = (id, e) => {
+		if (e) e.stopPropagation();
+		setSelectedFileIds((prev) => {
+			const next = new Set(prev);
+			if (next.has(id)) next.delete(id);
+			else next.add(id);
+			return next;
+		});
+	};
+	const toggleSelectAll = () => {
+		if (selectedFileIds.size === visibleFiles.length && visibleFiles.length > 0) setSelectedFileIds(/* @__PURE__ */ new Set());
+		else setSelectedFileIds(new Set(visibleFiles.map((f) => f.id)));
+	};
+	const handleBulkDelete = () => {
+		if (selectedFileIds.size === 0) return;
+		const selectedItems = visibleFiles.filter((f) => selectedFileIds.has(f.id));
+		if (confirm(`Permanently delete ${selectedItems.length} selected item(s)?`)) {
+			selectedItems.forEach((f) => fs.deleteItem(f.path));
+			setSelectedFileIds(/* @__PURE__ */ new Set());
+			showNotification(`Bulk deleted ${selectedItems.length} item(s)`);
+		}
+	};
+	const handleBulkCopyMove = (mode) => {
+		if (selectedFileIds.size === 0) return;
+		const targetDir = prompt(`Enter target directory for bulk ${mode}:`, currentPath);
+		if (!targetDir || !targetDir.trim()) return;
+		const cleanTarget = targetDir.trim();
+		const selectedItems = visibleFiles.filter((f) => selectedFileIds.has(f.id));
+		selectedItems.forEach((item) => {
+			const isBinary = item.type === "VRM" || item.type === "glTF" || item.type === "Image";
+			const content = fs.readFileContent(item.path, isBinary);
+			fs.createFile(cleanTarget, item.name, item.type, content);
+			if (mode === "move") fs.deleteItem(item.path);
+		});
+		setSelectedFileIds(/* @__PURE__ */ new Set());
+		showNotification(`Bulk ${mode}ed ${selectedItems.length} item(s) to ${cleanTarget}`);
+	};
+	const handleBulkDownload = () => {
+		const selectedItems = visibleFiles.filter((f) => selectedFileIds.has(f.id));
+		selectedItems.forEach((f) => fs.downloadFile(f));
+		showNotification(`Exporting ${selectedItems.length} item(s)...`);
+	};
 	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 		className: "flex flex-col h-full bg-[#080c14]/90 backdrop-blur-md border border-[#172a45] rounded-md overflow-hidden select-none text-xs shadow-xl",
 		children: [
@@ -70410,19 +71002,22 @@ var FileExplorer = ({ files, selectedFile, onSelectFile, onOpenFile, onContextMe
 							className: "font-semibold text-slate-200 tracking-tight text-xs",
 							children: "File Explorer"
 						}),
-						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
-							className: "hidden sm:inline text-[9px] px-1.5 py-0.2 rounded bg-[#0c1626] text-emerald-400 border border-emerald-500/30 font-mono-code",
-							children: "/storage/emulated/0"
+						fs.isNativeDeviceStorage() ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", {
+							className: "flex items-center gap-1 text-[9px] px-1.5 py-0.2 rounded bg-[#0b291d] text-emerald-300 border border-emerald-500/50 font-mono-code",
+							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: "NATIVE STORAGE ACTIVE" })]
+						}) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+							className: "hidden sm:inline text-[9px] px-1.5 py-0.2 rounded bg-[#0c1626] text-cyan-400 border border-cyan-500/30 font-mono-code",
+							children: currentPath
 						})
 					]
 				}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 					className: "flex items-center space-x-1",
 					children: [
-						/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
-							onClick: handleSetDefault,
-							className: "hidden sm:flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#0c1626] border border-[#172a45] text-[10px] text-slate-300 hover:text-cyan-300",
-							title: "Set as Default Android Storage Manager",
-							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(HardDrive, { className: "w-2.5 h-2.5 text-[#38bdf8]" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: "Default FM" })]
+						fs.isNativeDeviceStorage() && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
+							onClick: () => fs.requestNativePermission(),
+							className: "flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#102438] border border-cyan-500/40 text-[10px] text-cyan-300 hover:text-white hover:bg-[#183654] transition-all",
+							title: "Grant full Android storage permissions",
+							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(HardDrive, { className: "w-2.5 h-2.5 text-cyan-400" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: "Grant Permissions" })]
 						}),
 						onMinimize && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
 							onClick: onMinimize,
@@ -70646,6 +71241,13 @@ var FileExplorer = ({ files, selectedFile, onSelectFile, onOpenFile, onContextMe
 					children: viewMode === "list" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 						className: "h-5 bg-[#0a0f1b] border-b border-[#172a45] px-2 flex items-center text-[9px] font-medium text-slate-400 shrink-0 sticky top-0 z-10",
 						children: [
+							/* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", {
+								type: "checkbox",
+								checked: selectedFileIds.size === visibleFiles.length && visibleFiles.length > 0,
+								onChange: toggleSelectAll,
+								className: "mr-2 accent-[#38bdf8] cursor-pointer",
+								title: "Select / Deselect All Visible Files"
+							}),
 							/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
 								className: "flex-1",
 								children: "Name"
@@ -70666,8 +71268,15 @@ var FileExplorer = ({ files, selectedFile, onSelectFile, onOpenFile, onContextMe
 					}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
 						className: "p-0.5 space-y-0.5 flex-1",
 						children: visibleFiles.map((file) => {
-							const isSelected = selectedFile?.id === file.id;
+							const isSelected = selectedFile?.id === file.id || selectedFileIds.has(file.id);
+							const isChecked = selectedFileIds.has(file.id);
 							return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+								draggable: true,
+								onDragStart: (e) => {
+									e.dataTransfer.setData("text/plain", file.path);
+									e.dataTransfer.setData("application/json", JSON.stringify(file));
+									e.dataTransfer.effectAllowed = "copyMove";
+								},
 								onClick: () => onSelectFile(file),
 								onDoubleClick: () => {
 									if (file.isFolder) setCurrentPath(file.path);
@@ -70702,6 +71311,13 @@ var FileExplorer = ({ files, selectedFile, onSelectFile, onOpenFile, onContextMe
 								},
 								className: `flex items-center px-1.5 py-1 rounded cursor-pointer text-xs transition-colors group ${isSelected ? "bg-[#0e3a6a] text-white font-medium shadow-[0_0_8px_rgba(14,58,106,0.6)] border border-[#38bdf8]/40" : "text-slate-300 hover:bg-[#101a2c] hover:text-white border border-transparent"}`,
 								children: [
+									/* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", {
+										type: "checkbox",
+										checked: isChecked,
+										onChange: (e) => toggleSelectFile(file.id, e),
+										onClick: (e) => e.stopPropagation(),
+										className: "mr-2 accent-[#38bdf8] cursor-pointer shrink-0"
+									}),
 									/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 										className: "flex items-center space-x-1.5 flex-1 min-w-0 pr-2",
 										children: [getFileIcon(file.type), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
@@ -70729,6 +71345,12 @@ var FileExplorer = ({ files, selectedFile, onSelectFile, onOpenFile, onContextMe
 						children: visibleFiles.map((file) => {
 							const isSelected = selectedFile?.id === file.id;
 							return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+								draggable: true,
+								onDragStart: (e) => {
+									e.dataTransfer.setData("text/plain", file.path);
+									e.dataTransfer.setData("application/json", JSON.stringify(file));
+									e.dataTransfer.effectAllowed = "copyMove";
+								},
 								onClick: () => onSelectFile(file),
 								onDoubleClick: () => {
 									if (file.isFolder) setCurrentPath(file.path);
@@ -70761,8 +71383,15 @@ var FileExplorer = ({ files, selectedFile, onSelectFile, onOpenFile, onContextMe
 									onSelectFile(file);
 									if (onContextMenuFile) onContextMenuFile(file, e.clientX, e.clientY);
 								},
-								className: `flex flex-col items-center justify-center p-2 rounded cursor-pointer border text-center transition-all ${isSelected ? "bg-[#0e3a6a] border-[#38bdf8] text-white shadow-[0_0_8px_rgba(56,189,248,0.3)]" : "bg-[#0b1220] border-[#172a45] text-slate-300 hover:border-[#223d63]"}`,
+								className: `relative flex flex-col items-center justify-center p-2 rounded cursor-pointer border text-center transition-all ${isSelected ? "bg-[#0e3a6a] border-[#38bdf8] text-white shadow-[0_0_8px_rgba(56,189,248,0.3)]" : "bg-[#0b1220] border-[#172a45] text-slate-300 hover:border-[#223d63]"}`,
 								children: [
+									/* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", {
+										type: "checkbox",
+										checked: selectedFileIds.has(file.id),
+										onChange: (e) => toggleSelectFile(file.id, e),
+										onClick: (e) => e.stopPropagation(),
+										className: "absolute top-1.5 left-1.5 accent-[#38bdf8] cursor-pointer z-10"
+									}),
 									/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
 										className: "mb-1",
 										children: getFileIcon(file.type)
@@ -70779,6 +71408,51 @@ var FileExplorer = ({ files, selectedFile, onSelectFile, onOpenFile, onContextMe
 							}, file.id);
 						})
 					})
+				})]
+			}),
+			selectedFileIds.size > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+				className: "bg-[#091b30] border-t border-[#38bdf8]/50 px-3 py-1.5 flex items-center justify-between text-xs text-slate-100 shadow-[0_-8px_24px_rgba(0,0,0,0.8)] z-20 shrink-0 animate-in slide-in-from-bottom-2",
+				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+					className: "flex items-center space-x-2 font-bold text-cyan-300 font-mono-code text-[11px]",
+					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(SquareCheckBig, { className: "w-4 h-4 text-[#38bdf8]" }), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [selectedFileIds.size, " item(s) selected"] })]
+				}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+					className: "flex items-center space-x-1.5",
+					children: [
+						/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
+							onClick: () => handleBulkCopyMove("copy"),
+							className: "px-2 py-1 rounded bg-[#0b2442] hover:bg-[#123660] border border-cyan-500/40 text-cyan-200 text-[10px] font-semibold flex items-center gap-1 transition-all",
+							title: "Copy selected items to target folder",
+							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Copy, { className: "w-3 h-3 text-[#38bdf8]" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: "Copy To" })]
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
+							onClick: () => handleBulkCopyMove("move"),
+							className: "px-2 py-1 rounded bg-[#0b2442] hover:bg-[#123660] border border-cyan-500/40 text-cyan-200 text-[10px] font-semibold flex items-center gap-1 transition-all",
+							title: "Move selected items to target folder",
+							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(FolderInput, { className: "w-3 h-3 text-cyan-300" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: "Move To" })]
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
+							onClick: handleBulkDownload,
+							className: "px-2 py-1 rounded bg-[#0b2442] hover:bg-[#123660] border border-emerald-500/40 text-emerald-200 text-[10px] font-semibold flex items-center gap-1 transition-all",
+							title: "Export selected items to device",
+							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Download, { className: "w-3 h-3 text-emerald-400" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: "Export" })]
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
+							onClick: handleBulkDelete,
+							className: "px-2 py-1 rounded bg-[#330f18] hover:bg-[#521827] border border-rose-500/40 text-rose-200 text-[10px] font-semibold flex items-center gap-1 transition-all",
+							title: "Delete selected items",
+							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Trash2, { className: "w-3 h-3 text-rose-400" }), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
+								"Delete (",
+								selectedFileIds.size,
+								")"
+							] })]
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
+							onClick: () => setSelectedFileIds(/* @__PURE__ */ new Set()),
+							className: "px-1.5 py-1 rounded bg-[#0b1220] text-slate-400 hover:text-white text-[10px] ml-1",
+							title: "Clear selection",
+							children: "Clear"
+						})
+					]
 				})]
 			})
 		]
@@ -74457,26 +75131,145 @@ var WindowFrame = ({ window: win, parentTitle, onFocus, onMove, onResize, onMini
 	});
 };
 // src/components/WindowTaskbar.tsx
-var PcWindowsLogoMark = ({ className = "w-4 h-4" }) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("svg", {
+var OniFoxLogoMark = ({ className = "w-4 h-4" }) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("svg", {
 	className,
 	viewBox: "0 0 24 24",
 	fill: "none",
+	xmlns: "http://www.w3.org/2000/svg",
 	children: [
+		/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("defs", { children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("linearGradient", {
+			id: "purpleFoxGrad",
+			x1: "2",
+			y1: "2",
+			x2: "22",
+			y2: "22",
+			gradientUnits: "userSpaceOnUse",
+			children: [
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)("stop", {
+					offset: "0%",
+					stopColor: "#d8b4fe"
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)("stop", {
+					offset: "45%",
+					stopColor: "#a855f7"
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)("stop", {
+					offset: "100%",
+					stopColor: "#6b21a8"
+				})
+			]
+		}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("linearGradient", {
+			id: "greenHornGrad",
+			x1: "0",
+			y1: "0",
+			x2: "0",
+			y2: "12",
+			gradientUnits: "userSpaceOnUse",
+			children: [
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)("stop", {
+					offset: "0%",
+					stopColor: "#4ade80"
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)("stop", {
+					offset: "60%",
+					stopColor: "#22c55e"
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)("stop", {
+					offset: "100%",
+					stopColor: "#15803d"
+				})
+			]
+		})] }),
 		/* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", {
-			d: "M3 4.5L11 3.2V11.2H3V4.5Z",
-			className: "fill-[#38bdf8] group-hover:fill-cyan-200 transition-colors"
+			d: "M7.5 8.5C6 5.5 4.5 3 2.5 1.5C4 4 5 7 6.2 9.5Z",
+			fill: "url(#greenHornGrad)",
+			stroke: "#86efac",
+			strokeWidth: "0.5"
 		}),
 		/* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", {
-			d: "M12.5 3L21 1.8V11.2H12.5V3Z",
-			className: "fill-blue-400 group-hover:fill-cyan-100 transition-colors"
+			d: "M16.5 8.5C18 5.5 19.5 3 21.5 1.5C20 4 19 7 17.8 9.5Z",
+			fill: "url(#greenHornGrad)",
+			stroke: "#86efac",
+			strokeWidth: "0.5"
 		}),
 		/* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", {
-			d: "M3 12.8H11V20.8L3 19.5V12.8Z",
-			className: "fill-cyan-500 group-hover:fill-cyan-300 transition-colors"
+			d: "M4.5 9L6.5 3.5L9.5 8Z",
+			fill: "#581c87",
+			stroke: "#a855f7",
+			strokeWidth: "0.5"
 		}),
 		/* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", {
-			d: "M12.5 12.8H21V22.2L12.5 21V12.8Z",
-			className: "fill-blue-500 group-hover:fill-cyan-200 transition-colors"
+			d: "M5.5 8L6.5 4.8L8 7.2Z",
+			fill: "#c084fc"
+		}),
+		/* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", {
+			d: "M19.5 9L17.5 3.5L14.5 8Z",
+			fill: "#581c87",
+			stroke: "#a855f7",
+			strokeWidth: "0.5"
+		}),
+		/* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", {
+			d: "M18.5 8L17.5 4.8L16 7.2Z",
+			fill: "#c084fc"
+		}),
+		/* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", {
+			d: "M4.5 9C7 7.5 17 7.5 19.5 9C21 12.5 18.5 16.5 16.5 19L12 23L7.5 19C5.5 16.5 3 12.5 4.5 9Z",
+			fill: "url(#purpleFoxGrad)",
+			stroke: "#e9d5ff",
+			strokeWidth: "0.6"
+		}),
+		/* @__PURE__ */ (0, import_jsx_runtime.jsx)("polygon", {
+			points: "12,7 13.5,9.5 12,12 10.5,9.5",
+			fill: "#4ade80",
+			opacity: "0.95"
+		}),
+		/* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", {
+			d: "M6.5 12.5C7.8 11.5 10 12 10.5 13.2C9.2 13.8 7.5 13.8 6.5 12.5Z",
+			fill: "#22c55e",
+			stroke: "#4ade80",
+			strokeWidth: "0.4"
+		}),
+		/* @__PURE__ */ (0, import_jsx_runtime.jsx)("circle", {
+			cx: "8.2",
+			cy: "12.6",
+			r: "0.6",
+			fill: "#ffffff"
+		}),
+		/* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", {
+			d: "M17.5 12.5C16.2 11.5 14 12 13.5 13.2C14.8 13.8 16.5 13.8 17.5 12.5Z",
+			fill: "#22c55e",
+			stroke: "#4ade80",
+			strokeWidth: "0.4"
+		}),
+		/* @__PURE__ */ (0, import_jsx_runtime.jsx)("circle", {
+			cx: "15.8",
+			cy: "12.6",
+			r: "0.6",
+			fill: "#ffffff"
+		}),
+		/* @__PURE__ */ (0, import_jsx_runtime.jsx)("polygon", {
+			points: "11.2,16 12.8,16 12,17",
+			fill: "#1e1b4b"
+		}),
+		/* @__PURE__ */ (0, import_jsx_runtime.jsx)("polygon", {
+			points: "9.5,17 10,19.2 10.6,17.2",
+			fill: "#86efac"
+		}),
+		/* @__PURE__ */ (0, import_jsx_runtime.jsx)("polygon", {
+			points: "14.5,17 14,19.2 13.4,17.2",
+			fill: "#86efac"
+		}),
+		/* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", {
+			d: "M4 14C5.5 14.8 6.5 15.2 7.8 15",
+			stroke: "#d8b4fe",
+			strokeWidth: "0.5",
+			strokeLinecap: "round"
+		}),
+		/* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", {
+			d: "M20 14C18.5 14.8 17.5 15.2 16.2 15",
+			stroke: "#d8b4fe",
+			strokeWidth: "0.5",
+			strokeLinecap: "round"
 		})
 	]
 });
@@ -74606,17 +75399,20 @@ var WindowTaskbar = ({ windows, activeWindowId, onFocusWindow, onToggleMinimize,
 			className: "absolute bottom-10 left-2 w-88 max-w-[92vw] bg-[#030712]/96 backdrop-blur-2xl border border-cyan-500/40 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.95),0_0_25px_rgba(56,189,248,0.25)] overflow-hidden flex flex-col p-3 animate-in slide-in-from-bottom-3 duration-200 z-50",
 			children: [
 				/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-					className: "p-2.5 border-b border-[#1e293b] flex items-center justify-between mb-2.5 bg-[#060e1a]/90 rounded-xl border border-cyan-500/20",
+					className: "p-2.5 border-b border-[#1e293b] flex items-center justify-between mb-2.5 bg-[#060e1a]/90 rounded-xl border border-purple-500/30",
 					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 						className: "flex items-center space-x-2.5",
 						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-							className: "p-1.5 rounded-lg bg-[#09182b] border border-cyan-400/50 shadow-[0_0_12px_rgba(56,189,248,0.3)]",
-							children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PcWindowsLogoMark, { className: "w-5 h-5" })
+							className: "p-1.5 rounded-lg bg-[#140b24] border border-purple-500/50 shadow-[0_0_14px_rgba(168,85,247,0.4)]",
+							children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(OniFoxLogoMark, { className: "w-5 h-5" })
 						}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 							className: "font-extrabold text-slate-100 text-xs leading-tight tracking-wider uppercase flex items-center gap-1.5",
-							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: "Savage PC OS" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" })]
+							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+								className: "bg-gradient-to-r from-purple-300 via-purple-100 to-emerald-400 bg-clip-text text-transparent",
+								children: "Savage PC OS"
+							}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" })]
 						}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-							className: "text-[9px] text-cyan-400 font-mono-code",
+							className: "text-[9px] text-purple-300 font-mono-code",
 							children: "Predictive Search Engine Active"
 						})] })]
 					}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
@@ -74714,18 +75510,18 @@ var WindowTaskbar = ({ windows, activeWindowId, onFocusWindow, onToggleMinimize,
 			children: [
 				/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
 					onClick: () => setIsStartOpen(!isStartOpen),
-					className: `relative flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs font-black transition-all mr-2 shrink-0 border overflow-hidden group shadow-lg ${isStartOpen ? "bg-[#0e2744] text-cyan-300 border-cyan-400 shadow-[0_0_18px_rgba(56,189,248,0.5)] scale-102" : "bg-[#060b14] text-slate-100 border-[#1e293b] hover:border-cyan-400/80 hover:bg-[#0c182c] hover:shadow-[0_0_14px_rgba(56,189,248,0.3)]"}`,
-					title: "Savage PC Start Menu (Windows Launcher)",
+					className: `relative flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs font-black transition-all mr-2 shrink-0 border overflow-hidden group shadow-lg ${isStartOpen ? "bg-[#1b0d33] text-purple-200 border-purple-400 shadow-[0_0_18px_rgba(168,85,247,0.5)] scale-102" : "bg-[#0b0615] text-slate-100 border-purple-900/50 hover:border-purple-400/80 hover:bg-[#160a2c] hover:shadow-[0_0_16px_rgba(168,85,247,0.4)]"}`,
+					title: "Savage PC Start Menu (Oni Fox Launcher)",
 					children: [
 						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-							className: "transition-transform group-hover:scale-110",
-							children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PcWindowsLogoMark, { className: "w-4 h-4" })
+							className: "transition-transform group-hover:scale-110 drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]",
+							children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(OniFoxLogoMark, { className: "w-4 h-4" })
 						}),
 						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
-							className: "tracking-wider uppercase font-extrabold text-[11px] bg-gradient-to-r from-white via-cyan-200 to-cyan-400 bg-clip-text text-transparent",
+							className: "tracking-wider uppercase font-extrabold text-[11px] bg-gradient-to-r from-purple-200 via-purple-100 to-emerald-400 bg-clip-text text-transparent",
 							children: "Start"
 						}),
-						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" })
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" })
 					]
 				}),
 				/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
@@ -75404,6 +76200,105 @@ var ContextMenu = ({ state, onClose, onOpenStorage, onOpen3DViewer, onOpenInspec
 		]
 	});
 };
+// src/components/ToastNotificationStack.tsx
+var ToastNotificationStack = () => {
+	const notifService = NotificationService.getInstance();
+	const [toasts, setToasts] = (0, import_react.useState)(notifService.getToasts());
+	const [transfers, setTransfers] = (0, import_react.useState)(notifService.getTransfers());
+	(0, import_react.useEffect)(() => {
+		const updateState = () => {
+			setToasts(notifService.getToasts());
+			setTransfers(notifService.getTransfers());
+		};
+		const unsubscribe = notifService.subscribe(updateState);
+		return () => unsubscribe();
+	}, [notifService]);
+	if (toasts.length === 0 && transfers.length === 0) return null;
+	const getToastIcon = (type) => {
+		switch (type) {
+			case "success": return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CircleCheckBig, { className: "w-4 h-4 text-emerald-400 shrink-0" });
+			case "error": return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CircleAlert, { className: "w-4 h-4 text-rose-400 shrink-0" });
+			case "warning": return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(TriangleAlert, { className: "w-4 h-4 text-amber-400 shrink-0" });
+			default: return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Info, { className: "w-4 h-4 text-cyan-400 shrink-0" });
+		}
+	};
+	const formatBytes = (bytes) => {
+		if (bytes === 0) return "0 B";
+		const k = 1024;
+		const sizes = [
+			"B",
+			"KB",
+			"MB",
+			"GB"
+		];
+		const i = Math.floor(Math.log(bytes) / Math.log(k));
+		return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+	};
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+		className: "fixed bottom-10 right-3 z-50 flex flex-col space-y-2 max-w-sm w-full pointer-events-none select-none",
+		children: [transfers.map((tr) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+			className: "pointer-events-auto bg-[#050b18]/95 backdrop-blur-2xl border border-cyan-500/50 rounded-xl p-3 shadow-[0_16px_40px_rgba(0,0,0,0.9),0_0_20px_rgba(56,189,248,0.25)] animate-in slide-in-from-right-5 duration-200",
+			children: [
+				/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+					className: "flex items-center justify-between mb-1.5",
+					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+						className: "flex items-center space-x-2 min-w-0 pr-2",
+						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(HardDriveUpload, { className: "w-4 h-4 text-cyan-400 animate-pulse shrink-0" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+							className: "font-extrabold text-xs text-slate-100 truncate",
+							children: tr.fileName
+						})]
+					}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
+						onClick: () => notifService.cancelTransfer(tr.id),
+						className: "text-slate-400 hover:text-rose-400 p-0.5 rounded hover:bg-[#0f1d33] transition-colors",
+						title: "Cancel Transfer",
+						children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(X, { className: "w-3.5 h-3.5" })
+					})]
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+					className: "w-full bg-[#081326] h-2 rounded-full overflow-hidden border border-[#1e293b] mb-1.5",
+					children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+						className: `h-full transition-all duration-200 shadow-[0_0_10px_rgba(56,189,248,0.8)] ${tr.status === "completed" ? "bg-emerald-400" : tr.status === "failed" ? "bg-rose-500" : "bg-gradient-to-r from-cyan-500 to-blue-500"}`,
+						style: { width: `${tr.progressPct}%` }
+					})
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+					className: "flex items-center justify-between text-[10px] font-mono-code text-slate-400",
+					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
+						formatBytes(tr.bytesTransferred),
+						" / ",
+						formatBytes(tr.totalBytes),
+						" (",
+						tr.progressPct,
+						"%)"
+					] }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+						className: "text-cyan-300 font-bold",
+						children: tr.status === "transferring" ? `${tr.speedKbps} KB/s` : tr.status.toUpperCase()
+					})]
+				})
+			]
+		}, tr.id)), toasts.map((toast) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+			className: `pointer-events-auto flex items-start space-x-2.5 p-3 rounded-xl border backdrop-blur-2xl shadow-[0_16px_40px_rgba(0,0,0,0.9)] animate-in slide-in-from-right-5 duration-200 ${toast.type === "success" ? "bg-[#041812]/95 border-emerald-500/50 text-emerald-100 shadow-[0_0_15px_rgba(16,185,129,0.2)]" : toast.type === "error" ? "bg-[#1a080c]/95 border-rose-500/50 text-rose-100 shadow-[0_0_15px_rgba(244,63,94,0.2)]" : toast.type === "warning" ? "bg-[#1a1306]/95 border-amber-500/50 text-amber-100 shadow-[0_0_15px_rgba(245,158,11,0.2)]" : "bg-[#06101f]/95 border-cyan-500/50 text-cyan-100 shadow-[0_0_15px_rgba(56,189,248,0.2)]"}`,
+			children: [
+				getToastIcon(toast.type),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+					className: "flex-1 min-w-0 pr-1",
+					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+						className: "font-extrabold text-xs leading-tight mb-0.5 tracking-tight",
+						children: toast.title
+					}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+						className: "text-[11px] opacity-90 leading-snug font-mono-code break-words",
+						children: toast.message
+					})]
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
+					onClick: () => notifService.removeToast(toast.id),
+					className: "text-slate-400 hover:text-white p-0.5 rounded hover:bg-black/20 transition-colors shrink-0",
+					children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(X, { className: "w-3.5 h-3.5" })
+				})
+			]
+		}, toast.id))]
+	});
+};
 // src/App.tsx
 /**
 * @license
@@ -75426,6 +76321,22 @@ function App() {
 			localStorage.setItem("savage_desktop_customization", JSON.stringify(updated));
 		} catch {}
 	};
+	(0, import_react.useEffect)(() => {
+		const handleGlobalError = (event) => {
+			console.warn("Trapped global runtime JS error:", event.error || event.message);
+			event.preventDefault();
+		};
+		const handleGlobalRejection = (event) => {
+			console.warn("Trapped global promise rejection:", event.reason);
+			event.preventDefault();
+		};
+		window.addEventListener("error", handleGlobalError);
+		window.addEventListener("unhandledrejection", handleGlobalRejection);
+		return () => {
+			window.removeEventListener("error", handleGlobalError);
+			window.removeEventListener("unhandledrejection", handleGlobalRejection);
+		};
+	}, []);
 	const [sessionTabs, setSessionTabs] = (0, import_react.useState)(["Main Workspace"]);
 	const [activeSessionTab, setActiveSessionTab] = (0, import_react.useState)("Main Workspace");
 	const [isSettingsOpen, setIsSettingsOpen] = (0, import_react.useState)(false);
@@ -75511,12 +76422,12 @@ function App() {
 		return fs.subscribe(() => {
 			const updated = fs.getFiles();
 			setFiles(updated);
-			if (selectedFile) {
-				const stillExists = updated.find((f) => f.path === selectedFile.path);
-				setSelectedFile(stillExists || null);
-			}
+			setSelectedFile((currentSelected) => {
+				if (!currentSelected) return null;
+				return updated.find((f) => f.path === currentSelected.path) || null;
+			});
 		});
-	}, [selectedFile, fs]);
+	}, [fs]);
 	const getAllDescendantIds = (rootId, allWindows) => {
 		const result = [];
 		const queue = [rootId];
@@ -76001,7 +76912,8 @@ function App() {
 				onCloseWindow: closeWindow,
 				onFocusWindow: focusWindow,
 				showTerminal: isDeveloperModeUnlocked
-			})
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)(ToastNotificationStack, {})
 		]
 	});
 }

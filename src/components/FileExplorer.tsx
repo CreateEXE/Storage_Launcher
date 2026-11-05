@@ -290,11 +290,22 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
     );
   };
 
+  useEffect(() => {
+    if (fs.isNativeDeviceStorage()) {
+      fs.syncFromNativeStorage(currentPath, true);
+    }
+  }, [currentPath]);
+
   // Filter files in current path
   const visibleFiles = files.filter((f) => {
+    const matchesSearch = searchQuery.trim()
+      ? f.name.toLowerCase().includes(searchQuery.toLowerCase())
+      : true;
+    if (fs.isNativeDeviceStorage()) {
+      return matchesSearch;
+    }
     const parent = f.path.substring(0, f.path.lastIndexOf('/'));
     const inCurrentDir = parent === currentPath.replace(/\/+$/, '') || f.path === currentPath;
-    const matchesSearch = f.name.toLowerCase().includes(searchQuery.toLowerCase());
     return inCurrentDir && matchesSearch;
   });
 
