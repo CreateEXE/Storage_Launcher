@@ -11,7 +11,6 @@ import android.os.Environment;
 import android.provider.Settings;
 import android.util.Base64;
 import android.util.Log;
-import android.view.View;
 import android.webkit.ConsoleMessage;
 import android.webkit.JavascriptInterface;
 import android.webkit.RenderProcessGoneDetail;
@@ -295,8 +294,12 @@ public class MainActivity extends AppCompatActivity {
             settings.setAllowFileAccess(true);
             settings.setAllowContentAccess(true);
             settings.setMediaPlaybackRequiresUserGesture(false);
-            settings.setAllowFileAccessFromFileURLs(false);
-            settings.setAllowUniversalAccessFromFileURLs(false);
+
+            // Bundled Vite JavaScript modules and stylesheets are loaded relative to the local
+            // index.html. Allow the trusted app document to load its own packaged file assets.
+            settings.setAllowFileAccessFromFileURLs(true);
+            settings.setAllowUniversalAccessFromFileURLs(true);
+
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 settings.setSafeBrowsingEnabled(true);
