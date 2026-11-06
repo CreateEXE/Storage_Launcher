@@ -6,3 +6,13 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Android/Gradle generated output
+android/.gradle/
+android/**/build/
+android/local.properties
+android/app/src/main/assets/public/
+
+# IDE and platform metadata
+.idea/
+*.iml

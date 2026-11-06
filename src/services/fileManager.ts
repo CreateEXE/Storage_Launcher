@@ -28,6 +28,8 @@ declare global {
       writeSafFile: (parentUriOrPath: string, fileName: string, content: string, isBase64: boolean) => string;
       createSafDirectory: (parentUriOrPath: string, dirName: string) => string;
       deleteSafDocument: (documentUriStr: string) => boolean;
+      renameSafDocument: (documentUriStr: string, newName: string) => boolean;
+      resolveParentDocumentUri: (documentUriStr: string) => string;
     };
     onSafPermissionGranted?: (treeUri: string) => void;
   }
@@ -45,7 +47,6 @@ export class FileManagerService {
   private tree: TreeNode = FOLDER_TREE;
   private listeners: (() => void)[] = [];
 
-  // Undo / Redo Stacks
   private undoStack: HistoryState[] = [];
   private redoStack: HistoryState[] = [];
   private maxHistory: number = 30;
@@ -54,7 +55,6 @@ export class FileManagerService {
   private isSafAvailable: boolean = false;
   private currentNativeDirPath: string = '';
 
-  // Concurrency & Recursion Guards
   private isSyncing: boolean = false;
   private isNotifying: boolean = false;
   private notifyDebounceTimer: any = null;
@@ -70,10 +70,8 @@ export class FileManagerService {
       };
     }
 
-    // Load initial fallback state immediately
     this.load();
 
-    // If native storage exists, perform one background sync without blocking constructor
     if (this.isSafActive() && window.SafStorage) {
       this.currentNativeDirPath = window.SafStorage.getPersistedUriString();
       setTimeout(() => this.syncFromNativeStorage(this.currentNativeDirPath, true), 10);
@@ -120,68 +118,75 @@ export class FileManagerService {
     this.openSafPicker();
   }
 
-  public syncFromNativeStorage(dirPath?: string, shouldNotify: boolean = true): FileItem[] {
-    if (this.isSyncing) {
-      return this.files;
+  private getSafeParentPath(pathValue: string): string {
+    const raw = (pathValue || '').trim();
+    if (!raw) return this.getNativeRootPath();
+
+    if (raw.startsWith('content://')) {
+      if (window.SafStorage?.resolveParentDocumentUri) {
+        const parent = window.SafStorage.resolveParentDocumentUri(raw);
+        if (parent && parent !== raw) return parent;
+      }
+      const slashIndex = raw.lastIndexOf('/');
+      if (slashIndex > 0) return raw.substring(0, slashIndex);
+      return this.getNativeRootPath();
     }
+
+    const slashIndex = raw.lastIndexOf('/');
+    if (slashIndex <= 0) return this.getNativeRootPath();
+    return raw.substring(0, slashIndex);
+  }
+
+  public syncFromNativeStorage(dirPath?: string, shouldNotify: boolean = true): FileItem[] {
+    if (this.isSyncing) return this.files;
 
     const targetDir = dirPath || this.currentNativeDirPath || this.getNativeRootPath();
     this.currentNativeDirPath = targetDir;
     this.isSyncing = true;
 
     try {
-      // 1. SAF Storage Access Framework Path
       if (this.isSafActive() && window.SafStorage) {
         try {
           const rawJson = window.SafStorage.listSafDirectory(targetDir);
           const parsed = JSON.parse(rawJson || '[]');
-
           const safFiles: FileItem[] = parsed.map((item: any) => ({
-            id: `saf_${item.uri.replace(/[^a-zA-Z0-9]/g, '_')}`,
+            id: `saf_${(item.uri || item.name).replace(/[^a-zA-Z0-9]/g, '_')}`,
             name: item.name,
             size: item.isFolder ? '--' : this.formatBytes(item.sizeBytes || 0),
             sizeBytes: item.sizeBytes || 0,
             type: item.type || (item.isFolder ? 'Folder' : 'File'),
             modified: item.modified || this.formatDate(new Date()),
             isFolder: item.isFolder,
-            path: item.uri,
+            path: item.uri || `${targetDir}/${item.name}`,
             created: item.modified || this.formatDate(new Date())
           }));
-
           this.files = safFiles;
           this.buildTreeFromNativePath(targetDir, safFiles);
-          if (shouldNotify) {
-            this.notify();
-          }
+          if (shouldNotify) this.notify();
           return safFiles;
         } catch (e) {
           console.warn('SAF storage sync exception:', e);
         }
       }
 
-      // 2. Direct File Bridge Path
       if (this.isNativeStorageAvailable && window.AndroidStorage) {
         try {
           const rawJson = window.AndroidStorage.listDirectory(targetDir);
           const parsed = JSON.parse(rawJson || '[]');
-
           const nativeFiles: FileItem[] = parsed.map((item: any) => ({
-            id: `native_${item.path.replace(/[^a-zA-Z0-9]/g, '_')}`,
+            id: `native_${(item.path || item.name).replace(/[^a-zA-Z0-9]/g, '_')}`,
             name: item.name,
             size: item.isFolder ? '--' : this.formatBytes(item.sizeBytes || 0),
             sizeBytes: item.sizeBytes || 0,
             type: item.type || (item.isFolder ? 'Folder' : 'File'),
             modified: item.modified || this.formatDate(new Date()),
             isFolder: item.isFolder,
-            path: item.path,
+            path: item.path || `${targetDir}/${item.name}`,
             created: item.modified || this.formatDate(new Date())
           }));
-
           this.files = nativeFiles;
           this.buildTreeFromNativePath(targetDir, nativeFiles);
-          if (shouldNotify) {
-            this.notify();
-          }
+          if (shouldNotify) this.notify();
           return nativeFiles;
         } catch (e) {
           console.warn('Native storage sync exception:', e);
@@ -254,19 +259,12 @@ export class FileManagerService {
       description
     };
     this.undoStack.push(snapshot);
-    if (this.undoStack.length > this.maxHistory) {
-      this.undoStack.shift();
-    }
+    if (this.undoStack.length > this.maxHistory) this.undoStack.shift();
     this.redoStack = [];
   }
 
-  public canUndo(): boolean {
-    return this.undoStack.length > 0;
-  }
-
-  public canRedo(): boolean {
-    return this.redoStack.length > 0;
-  }
+  public canUndo(): boolean { return this.undoStack.length > 0; }
+  public canRedo(): boolean { return this.redoStack.length > 0; }
 
   public undo(): string | null {
     if (this.undoStack.length === 0) return null;
@@ -281,7 +279,6 @@ export class FileManagerService {
     const previousState = this.undoStack.pop()!;
     this.files = previousState.files;
     this.tree = previousState.tree;
-
     this.save();
     return previousState.description;
   }
@@ -299,7 +296,6 @@ export class FileManagerService {
     const nextState = this.redoStack.pop()!;
     this.files = nextState.files;
     this.tree = nextState.tree;
-
     this.save();
     return nextState.description;
   }
@@ -312,23 +308,14 @@ export class FileManagerService {
   }
 
   private notify(): void {
-    if (this.isNotifying) {
-      return;
-    }
-
-    if (this.notifyDebounceTimer) {
-      clearTimeout(this.notifyDebounceTimer);
-    }
+    if (this.isNotifying) return;
+    if (this.notifyDebounceTimer) clearTimeout(this.notifyDebounceTimer);
 
     this.notifyDebounceTimer = setTimeout(() => {
       this.isNotifying = true;
       try {
         this.listeners.forEach((l) => {
-          try {
-            l();
-          } catch (err) {
-            console.error('Error in fileManager listener:', err);
-          }
+          try { l(); } catch (err) { console.error('Error in fileManager listener:', err); }
         });
       } finally {
         this.isNotifying = false;
@@ -336,30 +323,23 @@ export class FileManagerService {
     }, 40);
   }
 
-  // PURE GETTER: Never trigger notify or synchronous recursion
-  public getFiles(): FileItem[] {
-    return [...this.files];
-  }
+  public getFiles(): FileItem[] { return [...this.files]; }
+  public getTree(): TreeNode { return this.tree; }
 
-  public getTree(): TreeNode {
-    return this.tree;
-  }
-
-  // PURE GETTER: Queries the directory without modifying this.files or calling notify()
   public getFilesByPath(dirPath: string): FileItem[] {
     if (this.isSafActive() && window.SafStorage) {
       try {
         const rawJson = window.SafStorage.listSafDirectory(dirPath);
         const parsed = JSON.parse(rawJson || '[]');
         return parsed.map((item: any) => ({
-          id: `saf_${item.uri.replace(/[^a-zA-Z0-9]/g, '_')}`,
+          id: `saf_${(item.uri || item.name).replace(/[^a-zA-Z0-9]/g, '_')}`,
           name: item.name,
           size: item.isFolder ? '--' : this.formatBytes(item.sizeBytes || 0),
           sizeBytes: item.sizeBytes || 0,
           type: item.type || (item.isFolder ? 'Folder' : 'File'),
           modified: item.modified || this.formatDate(new Date()),
           isFolder: item.isFolder,
-          path: item.uri,
+          path: item.uri || `${dirPath}/${item.name}`,
           created: item.modified || this.formatDate(new Date())
         }));
       } catch (e) {
@@ -373,14 +353,14 @@ export class FileManagerService {
         const rawJson = window.AndroidStorage.listDirectory(dirPath);
         const parsed = JSON.parse(rawJson || '[]');
         return parsed.map((item: any) => ({
-          id: `native_${item.path.replace(/[^a-zA-Z0-9]/g, '_')}`,
+          id: `native_${(item.path || item.name).replace(/[^a-zA-Z0-9]/g, '_')}`,
           name: item.name,
           size: item.isFolder ? '--' : this.formatBytes(item.sizeBytes || 0),
           sizeBytes: item.sizeBytes || 0,
           type: item.type || (item.isFolder ? 'Folder' : 'File'),
           modified: item.modified || this.formatDate(new Date()),
           isFolder: item.isFolder,
-          path: item.path,
+          path: item.path || `${dirPath}/${item.name}`,
           created: item.modified || this.formatDate(new Date())
         }));
       } catch (e) {
@@ -391,31 +371,23 @@ export class FileManagerService {
 
     const cleanPath = dirPath.replace(/\/+$/, '');
     return this.files.filter((f) => {
-      const parent = f.path.substring(0, f.path.lastIndexOf('/'));
+      if (!f.path) return false;
+      const parent = this.getSafeParentPath(f.path);
       return parent === cleanPath;
     });
   }
 
   public readFileContent(filePath: string, isBinary: boolean = false): string {
-    // For binary 3D models or images on native device, return the streaming path directly
     if (isBinary) {
-      if (filePath.startsWith('content://') || filePath.startsWith('file://')) {
-        return filePath;
-      }
-      if (filePath.startsWith('/')) {
-        return `file://${filePath}`;
-      }
+      if (filePath.startsWith('content://') || filePath.startsWith('file://') || filePath.startsWith('blob:')) return filePath;
+      if (filePath.startsWith('/')) return `file://${filePath}`;
     }
 
     if (this.isSafActive() && window.SafStorage) {
       if (isBinary) {
         const base64 = window.SafStorage.readSafFileAsBase64(filePath);
         if (!base64) return '';
-        try {
-          return `data:application/octet-stream;base64,${base64}`;
-        } catch {
-          return '';
-        }
+        return `data:application/octet-stream;base64,${base64}`;
       }
       return window.SafStorage.readSafFileAsString(filePath);
     }
@@ -424,11 +396,7 @@ export class FileManagerService {
       if (isBinary) {
         const base64 = window.AndroidStorage.readFileAsBase64(filePath);
         if (!base64) return '';
-        try {
-          return `data:application/octet-stream;base64,${base64}`;
-        } catch {
-          return '';
-        }
+        return `data:application/octet-stream;base64,${base64}`;
       }
       return window.AndroidStorage.readFileAsString(filePath);
     }
@@ -437,25 +405,27 @@ export class FileManagerService {
     return item?.content || '';
   }
 
-  public createFile(
-    parentPath: string,
-    name: string,
-    type: FileItem['type'],
-    content: string = ''
-  ): FileItem {
+  public createFile(parentPath: string, name: string, type: FileItem['type'], content: string = ''): FileItem {
     this.pushHistory(`Created file '${name}'`);
 
     const cleanParent = parentPath.replace(/\/+$/, '');
     const path = `${cleanParent}/${name}`;
     const sizeBytes = new Blob([content]).size;
+    const isBase64 = content.startsWith('data:') && content.includes(';base64,');
 
     if (this.isSafActive() && window.SafStorage) {
-      const isBase64 = content.startsWith('data:') && content.includes(';base64,');
-      window.SafStorage.writeSafFile(cleanParent, name, content, isBase64);
+      const result = window.SafStorage.writeSafFile(cleanParent, name, content, isBase64);
+      if (!result) {
+        this.undoStack.pop();
+        return this.files.find((item) => item.path === path) || { ...this.files[0], name, path, type } as FileItem;
+      }
       setTimeout(() => this.syncFromNativeStorage(cleanParent, true), 10);
     } else if (this.isNativeStorageAvailable && window.AndroidStorage) {
-      const isBase64 = content.startsWith('data:') && content.includes(';base64,');
-      window.AndroidStorage.writeFile(path, content, isBase64);
+      const success = window.AndroidStorage.writeFile(path, content, isBase64);
+      if (!success) {
+        this.undoStack.pop();
+        return this.files.find((item) => item.path === path) || { ...this.files[0], name, path, type } as FileItem;
+      }
       setTimeout(() => this.syncFromNativeStorage(cleanParent, true), 10);
     }
 
@@ -473,11 +443,8 @@ export class FileManagerService {
     };
 
     const existingIdx = this.files.findIndex((f) => f.path === path);
-    if (existingIdx >= 0) {
-      this.files[existingIdx] = newFile;
-    } else {
-      this.files.push(newFile);
-    }
+    if (existingIdx >= 0) this.files[existingIdx] = newFile;
+    else this.files.push(newFile);
 
     this.save();
     return newFile;
@@ -490,10 +457,18 @@ export class FileManagerService {
     const path = `${cleanParent}/${folderName}`;
 
     if (this.isSafActive() && window.SafStorage) {
-      window.SafStorage.createSafDirectory(cleanParent, folderName);
+      const result = window.SafStorage.createSafDirectory(cleanParent, folderName);
+      if (!result) {
+        this.undoStack.pop();
+        return this.files.find((item) => item.path === path) || { ...this.files[0], name: folderName, path, type: 'Folder', isFolder: true } as FileItem;
+      }
       setTimeout(() => this.syncFromNativeStorage(cleanParent, true), 10);
     } else if (this.isNativeStorageAvailable && window.AndroidStorage) {
-      window.AndroidStorage.createDirectory(path);
+      const success = window.AndroidStorage.createDirectory(path);
+      if (!success) {
+        this.undoStack.pop();
+        return this.files.find((item) => item.path === path) || { ...this.files[0], name: folderName, path, type: 'Folder', isFolder: true } as FileItem;
+      }
       setTimeout(() => this.syncFromNativeStorage(cleanParent, true), 10);
     }
 
@@ -509,10 +484,7 @@ export class FileManagerService {
       created: this.formatDate(new Date())
     };
 
-    if (!this.files.some((f) => f.path === path)) {
-      this.files.push(newFolder);
-    }
-
+    if (!this.files.some((f) => f.path === path)) this.files.push(newFolder);
     this.addNodeToTree(this.tree, cleanParent, folderName, path);
     this.save();
     return newFolder;
@@ -520,20 +492,26 @@ export class FileManagerService {
 
   public deleteItem(path: string): boolean {
     const item = this.files.find((f) => f.path === path);
-    if (item) {
-      this.pushHistory(`Deleted '${item.name}'`);
-    }
+    if (item) this.pushHistory(`Deleted '${item.name}'`);
 
     if (this.isSafActive() && window.SafStorage) {
-      window.SafStorage.deleteSafDocument(path);
-      const parentDir = path.substring(0, path.lastIndexOf('/')) || this.getNativeRootPath();
+      const succeeded = window.SafStorage.deleteSafDocument(path);
+      if (!succeeded) {
+        this.undoStack.pop();
+        return false;
+      }
+      const parentDir = this.getSafeParentPath(path);
       setTimeout(() => this.syncFromNativeStorage(parentDir, true), 10);
       return true;
     }
 
     if (this.isNativeStorageAvailable && window.AndroidStorage) {
-      window.AndroidStorage.deletePath(path);
-      const parentDir = path.substring(0, path.lastIndexOf('/'));
+      const succeeded = window.AndroidStorage.deletePath(path);
+      if (!succeeded) {
+        this.undoStack.pop();
+        return false;
+      }
+      const parentDir = this.getSafeParentPath(path);
       setTimeout(() => this.syncFromNativeStorage(parentDir, true), 10);
       return true;
     }
@@ -547,35 +525,84 @@ export class FileManagerService {
 
   public renameItem(oldPath: string, newName: string): boolean {
     const item = this.files.find((f) => f.path === oldPath);
-    if (!item) return false;
+    if (!item || !newName.trim()) return false;
 
-    this.pushHistory(`Renamed '${item.name}' to '${newName}'`);
+    const trimmedName = newName.trim();
+    const parent = this.getSafeParentPath(oldPath);
+    const newPath = `${parent}/${trimmedName}`;
 
-    const parent = oldPath.substring(0, oldPath.lastIndexOf('/'));
-    const newPath = `${parent}/${newName}`;
-
-    const isBinary = item.type === 'VRM' || item.type === 'glTF' || item.type === 'Image';
-    const content = this.readFileContent(oldPath, isBinary);
-    if (content) {
-      this.createFile(parent, newName, item.type, content);
-      this.deleteItem(oldPath);
+    if (this.isSafActive() && window.SafStorage?.renameSafDocument) {
+      const succeeded = window.SafStorage.renameSafDocument(oldPath, trimmedName);
+      if (!succeeded) {
+        this.undoStack.pop();
+        return false;
+      }
+      this.files = this.files.map((f) => (f.path === oldPath ? { ...f, name: trimmedName, path: newPath } : f));
+      this.save();
+      setTimeout(() => this.syncFromNativeStorage(parent, true), 10);
       return true;
     }
 
+    this.pushHistory(`Renamed '${item.name}' to '${trimmedName}'`);
+    const isBinary = item.type === 'VRM' || item.type === 'glTF' || item.type === 'Image';
+    const content = this.readFileContent(oldPath, isBinary);
+    if (!content) {
+      this.undoStack.pop();
+      return false;
+    }
+
+    const created = this.createFile(parent, trimmedName, item.type, content);
+    if (!created.path) {
+      this.undoStack.pop();
+      return false;
+    }
+
+    const deleted = this.deleteItem(oldPath);
+    if (!deleted) {
+      this.undoStack.pop();
+      return false;
+    }
+
+    this.files = this.files.map((f) => (f.path === newPath ? { ...f, path: newPath, name: trimmedName } : f));
+    this.save();
     return true;
   }
 
-  public downloadFile(file: FileItem): void {
-    const content = file.content || this.readFileContent(file.path, true) || `[Binary payload for ${file.name}]`;
-    const blob = new Blob([content], { type: 'application/octet-stream' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = file.name;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  private dataUriToBlob(dataUrl: string): Blob {
+    const [header, payload] = dataUrl.split(',', 2);
+    const mime = header.match(/data:([^;]+)/)?.[1] || 'application/octet-stream';
+    const binary = atob(payload || '');
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
+  }
+
+  public async downloadFile(file: FileItem): Promise<void> {
+    try {
+      const raw = file.content || this.readFileContent(file.path, true);
+      let blob: Blob;
+
+      if (raw.startsWith('data:')) {
+        blob = this.dataUriToBlob(raw);
+      } else if (file.path.startsWith('content://') || file.path.startsWith('file://') || file.path.startsWith('blob:')) {
+        const response = await fetch(file.path);
+        if (!response.ok) throw new Error(`Download failed for ${file.name}`);
+        blob = await response.blob();
+      } else {
+        blob = new Blob([raw || ''], { type: 'application/octet-stream' });
+      }
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download failed:', error);
+    }
   }
 
   public async uploadFile(fileObj: File, targetDir: string): Promise<FileItem> {
@@ -589,25 +616,18 @@ export class FileManagerService {
       fileObj.name.endsWith('.gltf') ||
       fileObj.name.endsWith('.obj') ||
       fileObj.name.endsWith('.png') ||
-      fileObj.name.endsWith('.jpg');
+      fileObj.name.endsWith('.jpg') ||
+      fileObj.name.endsWith('.jpeg');
 
-    let content = '';
     try {
+      let content = '';
       if (isBinary) {
-        content = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onprogress = (e) => {
-            if (e.lengthComputable) {
-              notif.updateTransferProgress(transferId, e.loaded);
-            }
-          };
-          reader.onload = () => {
-            notif.updateTransferProgress(transferId, fileObj.size);
-            resolve(reader.result as string);
-          };
-          reader.onerror = () => reject(reader.error);
-          reader.readAsDataURL(fileObj);
-        });
+        const buffer = await fileObj.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+        content = btoa(binary);
+        notif.updateTransferProgress(transferId, fileObj.size);
       } else {
         content = await fileObj.text();
         notif.updateTransferProgress(transferId, fileObj.size);
@@ -633,9 +653,7 @@ export class FileManagerService {
   private addNodeToTree(node: TreeNode, parentPath: string, name: string, path: string): boolean {
     if (node.path === parentPath) {
       if (!node.children) node.children = [];
-      if (!node.children.some((c) => c.path === path)) {
-        node.children.push({ name, path, isOpen: false });
-      }
+      if (!node.children.some((c) => c.path === path)) node.children.push({ name, path, isOpen: false });
       return true;
     }
     if (node.children) {
