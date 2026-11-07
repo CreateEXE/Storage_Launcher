@@ -58,7 +58,7 @@ public class MainActivity extends AppCompatActivity {
     // file:// (see assetLoader below). The bridges trust exactly this
     // origin, plus the legacy file:///android_asset/ origin as a fallback.
     private static final String APP_ORIGIN = "https://appassets.android.com/";
-    private static final String APP_URL = "https://appassets.android.com/index.html";
+    private static final String APP_URL = "https://appassets.android.com/public/index.html";
 
     // JavascriptInterface calls carry no origin or auth token in the Android
     // API. The only check available here is the page currently loaded in
@@ -381,7 +381,7 @@ public class MainActivity extends AppCompatActivity {
                 + "<h2>Savage Storage failed to start</h2>"
                 + "<p>The app page could not be loaded.</p>"
                 + "<p style=\"color:#94a3b8;font-size:13px\">" + safeDetail + "</p>"
-                + "<button onclick=\"location.href='https://appassets.android.com/index.html'\">Retry</button>"
+                + "<button onclick=\"location.href='https://appassets.android.com/public/index.html'\">Retry</button>"
                 + "</div></body></html>";
         webView.loadDataWithBaseURL(APP_ORIGIN, html, "text/html", "UTF-8", null);
     }
@@ -427,11 +427,15 @@ public class MainActivity extends AppCompatActivity {
             // load. WebViewAssetLoader fixes the root cause without
             // reopening it: same-origin module loads work over HTTPS, the
             // page still cannot fetch file:// URLs, and only files under
-            // android_asset/public/ are ever served — never arbitrary
-            // device files. androidx.webkit is already a dependency.
+            // android_asset/ are ever served — never arbitrary device
+            // files. androidx.webkit is already a dependency (1.10.0), and
+            // in 1.10.0 AssetsPathHandler has only a (Context) constructor
+            // — the (Context, String path) form does not exist yet — so the
+            // handler serves the assets root and the app is loaded at
+            // /public/index.html, where the workflow copies dist/.
             assetLoader = new WebViewAssetLoader.Builder()
                     .setDomain(WebViewAssetLoader.DEFAULT_DOMAIN)
-                    .addPathHandler("/", new WebViewAssetLoader.AssetsPathHandler(this, "public"))
+                    .addPathHandler("/", new WebViewAssetLoader.AssetsPathHandler(this))
                     .build();
 
             // Expose Native Android Storage & SAF Kotlin Bridges
