@@ -75,6 +75,17 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const vrmRef = useRef<VRM | null>(null);
+  // Blob URLs created for loaded models. GLTFLoader fetches them
+  // asynchronously, so they must not be revoked immediately — instead
+  // revoke the previous one when the next model loads, and the current
+  // one on unload / unmount. Previously they were never revoked.
+  const modelBlobUrlRef = useRef<string | null>(null);
+  const revokeModelBlobUrl = () => {
+    if (modelBlobUrlRef.current) {
+      try { URL.revokeObjectURL(modelBlobUrlRef.current); } catch {}
+      modelBlobUrlRef.current = null;
+    }
+  };
   const gltfSceneRef = useRef<THREE.Group | null>(null);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
   const animationFrameIdRef = useRef<number | null>(null);
@@ -567,6 +578,13 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
 
   // Main 3D File Loader Function (Guarded with Error Protection)
   const loadModelFromUrl = useCallback((url: string, name: string) => {
+    // The previous model's blob URL has already been fetched by now;
+    // revoke it before tracking the new one.
+    if (modelBlobUrlRef.current && modelBlobUrlRef.current !== url) {
+      try { URL.revokeObjectURL(modelBlobUrlRef.current); } catch {}
+      modelBlobUrlRef.current = null;
+    }
+    if (url.startsWith('blob:')) modelBlobUrlRef.current = url;
     setLoadingState({ isLoading: true, progress: 0, error: null, fileName: name });
 
     const scene = sceneRef.current;
@@ -720,7 +738,10 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
         (err: any) => {
           // JSON config / ObjectLoader fallback attempt
           fetch(url)
-            .then((res) => res.json())
+            .then((res) => {
+              if (!res.ok) throw new Error(`HTTP ${res.status} loading ${name}`);
+              return res.json();
+            })
             .then((jsonData) => {
               if (jsonData.parameters) {
                 // Serialized Avatar Config JSON
@@ -935,6 +956,7 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
       canvas.removeEventListener('webglcontextlost', handleContextLost);
       canvas.removeEventListener('webglcontextrestored', handleContextRestored);
       resizeObserver.disconnect();
+      revokeModelBlobUrl();
       renderer.dispose();
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
@@ -980,10 +1002,14 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
       try {
         const item: FileItem = JSON.parse(jsonStr);
         const content = fs.readFileContent(item.path, true);
-        const targetUrl = content.startsWith('data:') || content.startsWith('blob:')
-          ? content
-          : `file://${item.path}`;
-        loadModelFromUrl(targetUrl, item.name);
+        if (!content || !(content.startsWith('data:') || content.startsWith('blob:'))) {
+          // A file:// / content:// path is not loadable data — the
+          // WebView blocks file access from file URLs, and a path string
+          // is not model bytes. Fail visibly instead of a silent load error.
+          setLoadingState({ isLoading: false, progress: 0, error: `Could not read model data for "${item.name}".`, fileName: item.name });
+          return;
+        }
+        loadModelFromUrl(content, item.name);
         return;
       } catch {}
     }
@@ -991,14 +1017,16 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
     if (textPath) {
       const fileName = textPath.split('/').pop() || 'model.vrm';
       const content = fs.readFileContent(textPath, true);
-      const targetUrl = content.startsWith('data:') || content.startsWith('blob:')
-        ? content
-        : `file://${textPath}`;
-      loadModelFromUrl(targetUrl, fileName);
+      if (!content || !(content.startsWith('data:') || content.startsWith('blob:'))) {
+        setLoadingState({ isLoading: false, progress: 0, error: `Could not read model data for "${fileName}".`, fileName });
+        return;
+      }
+      loadModelFromUrl(content, fileName);
     }
   };
 
   const handleUnloadModel = () => {
+    revokeModelBlobUrl();
     const scene = sceneRef.current;
     if (scene) {
       if (vrmRef.current) {
@@ -1595,12 +1623,12 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
                         if (item.isFolder) {
                           setNativePickerDir(item.path);
                         } else if (is3DModel) {
-                          const url = item.path.startsWith('content://') || item.path.startsWith('file://')
-                            ? item.path
-                            : item.path.startsWith('/')
-                            ? `file://${item.path}`
-                            : item.path;
-                          loadModelFromUrl(url, item.name);
+                          const content = fs.readFileContent(item.path, true);
+                          if (!content || !(content.startsWith('data:') || content.startsWith('blob:'))) {
+                            setLoadingState({ isLoading: false, progress: 0, error: `Could not read model data for "${item.name}".`, fileName: item.name });
+                          } else {
+                            loadModelFromUrl(content, item.name);
+                          }
                           setShowNativeStoragePicker(false);
                         }
                       }}

@@ -1,26 +1,24 @@
-#!/usr/bin/env bg
-# Lightweight gradlew wrapper script
-set -e
-echo "==== Savage Storage Android Gradle Build System ===="
-echo "Building Savage Storage APK artifact for Dimensity 6300..."
-
-mkdir -p app/build/outputs/apk/debug
-mkdir -p app/build/outputs/apk/release
-
-echo "Pre-processing web build assets..."
-if [ -d "../dist" ]; then
-  mkdir -p app/src/main/assets/public
-  cp -r ../dist/* app/src/main/assets/public/ || true
-fi
-
-echo "Simulating APK Compilation..."
-cat << 'EOF' > app/build/outputs/apk/debug/SavageStorage-v2.5.0-debug.apk
-PK-SAVAGE-STORAGE-VRM-ANDROID-APK-PACKAGE
-EOF
-
-cat << 'EOF' > app/build/outputs/apk/release/SavageStorage-v2.5.0-release.apk
-PK-SAVAGE-STORAGE-VRM-ANDROID-APK-RELEASE-PACKAGE
-EOF
-
-echo "✓ Android APK build complete!"
-echo "APK location: android/app/build/outputs/apk/debug/SavageStorage-v2.5.0-debug.apk"
+#!/usr/bin/env sh
+# Guard: there is NO real Gradle wrapper in this repo yet.
+#
+# The previous android/gradlew was a simulation script. It ignored its
+# arguments, printed "APK build complete!", and wrote placeholder text
+# files named *.apk (containing "PK-SAVAGE-STORAGE-..."). Those were not
+# real APKs. That script has been removed so a build can no longer
+# silently succeed with a fake artifact.
+#
+# To get a real build, generate a real wrapper on a machine with Gradle
+# and the Android SDK installed (Gradle docs: the wrapper is not
+# downloaded, it is generated with `gradle wrapper`):
+#   cd android && gradle wrapper --gradle-version 8.2
+# That creates a real gradlew, gradlew.bat, and gradle/wrapper/gradle-wrapper.jar.
+# Then re-run: npm run build:apk
+# (which runs ./gradlew assembleDebug; the APK lands in
+#  android/app/build/outputs/apk/debug/)
+#
+# Until then, fail loudly instead of pretending to build.
+echo "ERROR: No real Gradle wrapper in this repo." >&2
+echo "The previous android/gradlew was a simulation that wrote fake .apk files." >&2
+echo "Generate a real wrapper with: cd android && gradle wrapper --gradle-version 8.2" >&2
+echo "Then re-run: npm run build:apk" >&2
+exit 1

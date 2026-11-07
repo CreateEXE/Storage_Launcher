@@ -50,10 +50,52 @@ public class MainActivity extends AppCompatActivity {
     private ValueCallback<Uri[]> uploadMessage;
     private SafStorageBridge safStorageBridge;
 
+    // JavascriptInterface calls carry no origin or auth token in the Android
+    // API. The only check available here is the page currently loaded in
+    // this WebView: bridges must only answer the bundled app page
+    // (file:///android_asset/...). A remote page, or any other file:// page,
+    // loaded in the WebView must not be able to call these bridges.
+    // This is an origin check, not a cryptographic auth token; it stops the
+    // reported hole (any loaded web content using the bridges) but any code
+    // running inside the bundled app page itself is still trusted.
+    private boolean isTrustedOrigin() {
+        if (webView == null) return false;
+        String url = webView.getUrl();
+        return url != null && url.startsWith("file:///android_asset/");
+    }
+
+    private boolean checkTrusted() {
+        if (!isTrustedOrigin()) {
+            Log.w(TAG, "Blocked JavascriptInterface call from untrusted origin: "
+                    + (webView != null ? webView.getUrl() : null));
+            return false;
+        }
+        return true;
+    }
+
+    private boolean isAllowedPath(File file) {
+        try {
+            String canonical = file.getCanonicalPath();
+            File external = Environment.getExternalStorageDirectory();
+            String externalRoot = external != null ? external.getCanonicalPath() : null;
+            String appFiles = getFilesDir().getCanonicalPath();
+            String cache = getCacheDir().getCanonicalPath();
+            if (externalRoot != null && (canonical.equals(externalRoot) || canonical.startsWith(externalRoot + File.separator))) return true;
+            if (canonical.equals(appFiles) || canonical.startsWith(appFiles + File.separator)) return true;
+            if (canonical.equals(cache) || canonical.startsWith(cache + File.separator)) return true;
+            Log.w(TAG, "Blocked file access outside allowed roots: " + canonical);
+            return false;
+        } catch (Exception e) {
+            Log.e(TAG, "Error checking allowed path", e);
+            return false;
+        }
+    }
+
     public class AndroidStorageBridge {
 
         @JavascriptInterface
         public boolean hasStoragePermission() {
+            if (!checkTrusted()) return false;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 return Environment.isExternalStorageManager();
             } else {
@@ -65,6 +107,7 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public void requestStoragePermission() {
+            if (!checkTrusted()) return;
             runOnUiThread(() -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     try {
@@ -95,6 +138,7 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public String getStorageRootPath() {
+            if (!checkTrusted()) return "";
             File external = Environment.getExternalStorageDirectory();
             if (external != null && external.exists()) {
                 return external.getAbsolutePath();
@@ -104,12 +148,14 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public String listDirectory(String dirPath) {
+            if (!checkTrusted()) return "[]";
             try {
                 String targetPath = (dirPath == null || dirPath.trim().isEmpty() || dirPath.equals("/"))
                         ? getStorageRootPath()
                         : dirPath;
 
                 File dir = new File(targetPath);
+                if (!isAllowedPath(dir)) return "[]";
                 if (!dir.exists() || !dir.isDirectory()) {
                     return "[]";
                 }
@@ -164,9 +210,11 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public String readFileAsBase64(String filePath) {
+            if (!checkTrusted()) return "";
             try {
                 File file = new File(filePath);
                 if (!file.exists() || !file.isFile()) return "";
+                if (!isAllowedPath(file)) return "";
 
                 long length = file.length();
                 if (length > 40 * 1024 * 1024) { // 40MB limit for Base64 to prevent OOM
@@ -176,10 +224,20 @@ public class MainActivity extends AppCompatActivity {
 
                 byte[] bytes = new byte[(int) length];
                 try (FileInputStream fis = new FileInputStream(file)) {
-                    int read = fis.read(bytes);
-                    if (read > 0) {
-                        return Base64.encodeToString(bytes, Base64.NO_WRAP);
+                    // A single read() is not guaranteed to fill the buffer.
+                    // Loop until full, and fail (return "") on a short read
+                    // instead of encoding unwritten zero bytes as data.
+                    int offset = 0;
+                    while (offset < bytes.length) {
+                        int read = fis.read(bytes, offset, bytes.length - offset);
+                        if (read == -1) {
+                            Log.e(TAG, "Short read reading file base64: " + filePath
+                                    + " (" + offset + " of " + bytes.length + " bytes)");
+                            return "";
+                        }
+                        offset += read;
                     }
+                    return Base64.encodeToString(bytes, Base64.NO_WRAP);
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Error reading file base64: " + filePath, e);
@@ -189,9 +247,11 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public String readFileAsString(String filePath) {
+            if (!checkTrusted()) return "";
             try {
                 File file = new File(filePath);
                 if (!file.exists() || !file.isFile()) return "";
+                if (!isAllowedPath(file)) return "";
 
                 long length = file.length();
                 if (length > 10 * 1024 * 1024) { // 10MB limit for text strings
@@ -200,7 +260,16 @@ public class MainActivity extends AppCompatActivity {
 
                 byte[] bytes = new byte[(int) length];
                 try (FileInputStream fis = new FileInputStream(file)) {
-                    fis.read(bytes);
+                    int offset = 0;
+                    while (offset < bytes.length) {
+                        int read = fis.read(bytes, offset, bytes.length - offset);
+                        if (read == -1) {
+                            Log.e(TAG, "Short read reading file string: " + filePath
+                                    + " (" + offset + " of " + bytes.length + " bytes)");
+                            return "";
+                        }
+                        offset += read;
+                    }
                     return new String(bytes, "UTF-8");
                 }
             } catch (Exception e) {
@@ -211,8 +280,10 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public boolean writeFile(String filePath, String dataContent, boolean isBase64) {
+            if (!checkTrusted()) return false;
             try {
                 File file = new File(filePath);
+                if (!isAllowedPath(file)) return false;
                 File parent = file.getParentFile();
                 if (parent != null && !parent.exists()) {
                     parent.mkdirs();
@@ -242,8 +313,10 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public boolean deletePath(String filePath) {
+            if (!checkTrusted()) return false;
             try {
                 File file = new File(filePath);
+                if (!isAllowedPath(file)) return false;
                 if (!file.exists()) return false;
                 if (file.isDirectory()) {
                     deleteRecursive(file);
@@ -270,8 +343,10 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public boolean createDirectory(String dirPath) {
+            if (!checkTrusted()) return false;
             try {
                 File dir = new File(dirPath);
+                if (!isAllowedPath(dir)) return false;
                 return dir.mkdirs() || dir.exists();
             } catch (Exception e) {
                 Log.e(TAG, "Error creating directory: " + dirPath, e);
@@ -297,12 +372,16 @@ public class MainActivity extends AppCompatActivity {
             settings.setAllowContentAccess(true);
             settings.setMediaPlaybackRequiresUserGesture(false);
 
-            settings.setAllowFileAccessFromFileURLs(true);
-            settings.setAllowUniversalAccessFromFileURLs(true);
+            // Previously true/ALWAYS_ALLOW/disabled: any page loaded in the
+            // WebView could reach file:// URLs and mixed content, and use the
+            // JavascriptInterface bridges. The bundled app page is loaded
+            // from file:///android_asset/, so it still works with these off.
+            settings.setAllowFileAccessFromFileURLs(false);
+            settings.setAllowUniversalAccessFromFileURLs(false);
 
-            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                settings.setSafeBrowsingEnabled(false);
+                settings.setSafeBrowsingEnabled(true);
             }
 
             // Expose Native Android Storage & SAF Kotlin Bridges
@@ -326,18 +405,11 @@ public class MainActivity extends AppCompatActivity {
                                 Log.e(TAG, "Error intercepting content URI: " + uri, e);
                             }
                         } else if ("file".equalsIgnoreCase(scheme)) {
-                            try {
-                                String path = uri.getPath();
-                                if (path != null && !path.startsWith("/android_asset/")) {
-                                    File f = new File(path);
-                                    if (f.exists() && f.isFile()) {
-                                        FileInputStream fis = new FileInputStream(f);
-                                        return new WebResourceResponse("application/octet-stream", "UTF-8", fis);
-                                    }
-                                }
-                            } catch (Exception e) {
-                                Log.e(TAG, "Error intercepting file URI: " + uri, e);
-                            }
+                            // Previously this served any file:// path outside
+                            // /android_asset/ to any loaded page. Do not do
+                            // that: only the WebView's own android_asset
+                            // handling may serve bundled files.
+                            return super.shouldInterceptRequest(view, request);
                         }
                     }
                     return super.shouldInterceptRequest(view, request);

@@ -35,14 +35,34 @@ class SafStorageBridge(
     private fun getSharedPreferences() =
         context.getSharedPreferences("saf_storage_prefs", Context.MODE_PRIVATE)
 
+    // JavascriptInterface calls carry no origin or auth token. Only answer
+    // the bundled app page (file:///android_asset/...); a remote page, or
+    // any other file:// page, loaded in the WebView must not reach SAF
+    // documents. This is an origin check, not a cryptographic token, and
+    // SAF itself still only exposes the user-granted persisted tree.
+    private fun isTrustedOrigin(): Boolean {
+        val url = try { webView.url } catch (e: Exception) { null }
+        return url != null && url.startsWith("file:///android_asset/")
+    }
+
+    private fun checkTrusted(): Boolean {
+        if (!isTrustedOrigin()) {
+            Log.w(TAG, "Blocked SafStorage call from untrusted origin: ${try { webView.url } catch (e: Exception) { null }}")
+            return false
+        }
+        return true
+    }
+
     @JavascriptInterface
     public fun getPersistedUriString(): String {
+        if (!checkTrusted()) return ""
         return getSharedPreferences().getString(PREF_SAF_URI, "") ?: ""
     }
 
     @JavascriptInterface
     public fun hasPersistedPermission(): Boolean {
-        val uriString = getPersistedUriString()
+        if (!checkTrusted()) return false
+        val uriString = getSharedPreferences().getString(PREF_SAF_URI, "") ?: ""
         if (uriString.isEmpty()) return false
 
         try {
@@ -63,6 +83,7 @@ class SafStorageBridge(
 
     @JavascriptInterface
     public fun openDocumentTree() {
+        if (!checkTrusted()) return
         activity.runOnUiThread {
             try {
                 val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
@@ -148,6 +169,7 @@ class SafStorageBridge(
 
     @JavascriptInterface
     public fun listSafDirectory(uriOrPath: String?): String {
+        if (!checkTrusted()) return "[]"
         try {
             val rootUriStr = getPersistedUriString()
             if (rootUriStr.isEmpty()) return "[]"
@@ -259,6 +281,7 @@ class SafStorageBridge(
 
     @JavascriptInterface
     public fun readSafFileAsString(fileUriStr: String): String {
+        if (!checkTrusted()) return ""
         return try {
             val uri = Uri.parse(fileUriStr)
             val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
@@ -275,6 +298,7 @@ class SafStorageBridge(
 
     @JavascriptInterface
     public fun readSafFileAsBase64(fileUriStr: String): String {
+        if (!checkTrusted()) return ""
         return try {
             val uri = Uri.parse(fileUriStr)
             val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
@@ -303,6 +327,7 @@ class SafStorageBridge(
 
     @JavascriptInterface
     public fun writeSafFile(parentUriOrPath: String, fileName: String, content: String, isBase64: Boolean): String {
+        if (!checkTrusted()) return ""
         return try {
             val parentDoc = getDocumentFileFromUriOrPath(parentUriOrPath) ?: return ""
 
@@ -348,6 +373,7 @@ class SafStorageBridge(
 
     @JavascriptInterface
     public fun createSafDirectory(parentUriOrPath: String, dirName: String): String {
+        if (!checkTrusted()) return ""
         return try {
             val parentDoc = getDocumentFileFromUriOrPath(parentUriOrPath) ?: return ""
             var existing = parentDoc.findFile(dirName)
@@ -363,6 +389,7 @@ class SafStorageBridge(
 
     @JavascriptInterface
     public fun deleteSafDocument(documentUriStr: String): Boolean {
+        if (!checkTrusted()) return false
         return try {
             val doc = getDocumentFileFromUriOrPath(documentUriStr) ?: return false
             doc.delete()
@@ -372,3 +399,4 @@ class SafStorageBridge(
         }
     }
 }
+
