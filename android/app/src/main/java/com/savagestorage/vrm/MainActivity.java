@@ -17,11 +17,13 @@ import android.webkit.JavascriptInterface;
 import android.webkit.RenderProcessGoneDetail;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import androidx.webkit.WebViewAssetLoader;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
@@ -49,6 +51,14 @@ public class MainActivity extends AppCompatActivity {
     private WebView webView;
     private ValueCallback<Uri[]> uploadMessage;
     private SafStorageBridge safStorageBridge;
+    private WebViewAssetLoader assetLoader;
+    private boolean loadErrorShown = false;
+
+    // The bundled app is served over a real local HTTPS origin instead of
+    // file:// (see assetLoader below). The bridges trust exactly this
+    // origin, plus the legacy file:///android_asset/ origin as a fallback.
+    private static final String APP_ORIGIN = "https://appassets.android.com/";
+    private static final String APP_URL = "https://appassets.android.com/index.html";
 
     // JavascriptInterface calls carry no origin or auth token in the Android
     // API. The only check available here is the page currently loaded in
@@ -61,7 +71,8 @@ public class MainActivity extends AppCompatActivity {
     private boolean isTrustedOrigin() {
         if (webView == null) return false;
         String url = webView.getUrl();
-        return url != null && url.startsWith("file:///android_asset/");
+        return url != null && (url.startsWith("file:///android_asset/")
+                || url.startsWith(APP_ORIGIN));
     }
 
     private boolean checkTrusted() {
@@ -355,6 +366,26 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    // Shows a visible error screen instead of leaving the user on a blank
+    // page when the bundled app fails to load. The retry button reloads the
+    // app URL; loadErrorShown guards against an error loop.
+    private void showLoadErrorPage(String detail) {
+        if (webView == null || loadErrorShown) return;
+        loadErrorShown = true;
+        String safeDetail = detail == null ? "" : detail.replace("<", "&lt;").replace(">", "&gt;");
+        String html = "<!doctype html><html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+                + "<style>body{background:#03060c;color:#e2e8f0;font-family:sans-serif;margin:0;"
+                + "display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center}"
+                + "button{background:#0891b2;color:#fff;border:0;border-radius:8px;padding:12px 24px;"
+                + "font-size:16px;margin-top:16px}</style></head><body><div>"
+                + "<h2>Savage Storage failed to start</h2>"
+                + "<p>The app page could not be loaded.</p>"
+                + "<p style=\"color:#94a3b8;font-size:13px\">" + safeDetail + "</p>"
+                + "<button onclick=\"location.href='https://appassets.android.com/index.html'\">Retry</button>"
+                + "</div></body></html>";
+        webView.loadDataWithBaseURL(APP_ORIGIN, html, "text/html", "UTF-8", null);
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -384,6 +415,25 @@ public class MainActivity extends AppCompatActivity {
                 settings.setSafeBrowsingEnabled(true);
             }
 
+            // Serve the bundled app over a real local HTTPS origin
+            // (https://appassets.android.com/) instead of file://.
+            // Why: Vite emits the app as ES modules with a `crossorigin`
+            // attribute, and module scripts are always CORS-checked. From
+            // file:// the page has an opaque origin and the bundled files
+            // carry no CORS headers, so the JS (and CSS) never loads and
+            // React never mounts — a blank white screen. That is what the
+            // PR #2 hardening exposed: setAllowUniversalAccessFromFileURLs
+            // (false) used to be the escape hatch that let file:// modules
+            // load. WebViewAssetLoader fixes the root cause without
+            // reopening it: same-origin module loads work over HTTPS, the
+            // page still cannot fetch file:// URLs, and only files under
+            // android_asset/public/ are ever served — never arbitrary
+            // device files. androidx.webkit is already a dependency.
+            assetLoader = new WebViewAssetLoader.Builder()
+                    .setDomain(WebViewAssetLoader.DEFAULT_DOMAIN)
+                    .addPathHandler("/", new WebViewAssetLoader.AssetsPathHandler(this, "public"))
+                    .build();
+
             // Expose Native Android Storage & SAF Kotlin Bridges
             safStorageBridge = new SafStorageBridge(this, webView);
             webView.addJavascriptInterface(new AndroidStorageBridge(), "AndroidStorage");
@@ -392,6 +442,12 @@ public class MainActivity extends AppCompatActivity {
             webView.setWebViewClient(new WebViewClient() {
                 @Override
                 public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                    // Let the asset loader serve the bundled app first.
+                    WebResourceResponse assetResponse =
+                            assetLoader.shouldInterceptRequest(request.getUrl());
+                    if (assetResponse != null) {
+                        return assetResponse;
+                    }
                     Uri uri = request.getUrl();
                     if (uri != null) {
                         String scheme = uri.getScheme();
@@ -416,6 +472,40 @@ public class MainActivity extends AppCompatActivity {
                 }
 
                 @Override
+                public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                    super.onPageStarted(view, url, favicon);
+                    if (url != null && url.startsWith(APP_ORIGIN)) {
+                        loadErrorShown = false;
+                    }
+                }
+
+                @Override
+                public void onReceivedError(WebView view, WebResourceRequest request,
+                                            WebResourceError error) {
+                    if (request != null && request.isForMainFrame()) {
+                        Log.e(TAG, "WebView page load error: " + request.getUrl()
+                                + " — " + error.getDescription());
+                        showLoadErrorPage(String.valueOf(error.getDescription()));
+                    } else if (request != null) {
+                        Log.e(TAG, "WebView resource load error: " + request.getUrl()
+                                + " — " + error.getDescription());
+                    }
+                }
+
+                @Override
+                public void onReceivedHttpError(WebView view, WebResourceRequest request,
+                                                WebResourceResponse errorResponse) {
+                    if (request != null && request.isForMainFrame()) {
+                        Log.e(TAG, "WebView HTTP error loading page: " + request.getUrl()
+                                + " — HTTP " + errorResponse.getStatusCode());
+                        showLoadErrorPage("HTTP " + errorResponse.getStatusCode());
+                    } else if (request != null) {
+                        Log.w(TAG, "WebView HTTP error loading resource: " + request.getUrl()
+                                + " — HTTP " + errorResponse.getStatusCode());
+                    }
+                }
+
+                @Override
                 public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
                     Log.e(TAG, "WebView render process gone. Re-creating activity...");
                     if (webView != null) {
@@ -431,8 +521,13 @@ public class MainActivity extends AppCompatActivity {
             webView.setWebChromeClient(new WebChromeClient() {
                 @Override
                 public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
-                    Log.d("SavageStorageWeb", consoleMessage.message() + " -- Line "
-                            + consoleMessage.lineNumber() + " of " + consoleMessage.sourceId());
+                    String text = consoleMessage.message() + " -- Line "
+                            + consoleMessage.lineNumber() + " of " + consoleMessage.sourceId();
+                    if (consoleMessage.messageLevel() == ConsoleMessage.MessageLevel.ERROR) {
+                        Log.e("SavageStorageWeb", text);
+                    } else {
+                        Log.d("SavageStorageWeb", text);
+                    }
                     return true;
                 }
 
@@ -471,7 +566,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
 
-            webView.loadUrl("file:///android_asset/public/index.html");
+            webView.loadUrl(APP_URL);
         } catch (Exception e) {
             Log.e(TAG, "Fatal error initializing MainActivity WebView", e);
         }
