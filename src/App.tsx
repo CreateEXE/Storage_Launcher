@@ -250,6 +250,42 @@ export default function App() {
     });
   };
 
+  const isSupportedModelFile = (file?: FileItem | null) => {
+    if (!file) return false;
+    const name = (file.name || '').toLowerCase();
+    return file.type === 'VRM' || file.type === 'glTF' || name.endsWith('.vrm') || name.endsWith('.glb') || name.endsWith('.gltf') || name.endsWith('.obj');
+  };
+
+  const normalizeModelFileForViewer = (file?: FileItem | null): FileItem | undefined => {
+    if (!file || !isSupportedModelFile(file)) return file || undefined;
+
+    const name = file.name.toLowerCase();
+    const rawContent = file.content || fs.readFileContent(file.path, true);
+    const safeContent = typeof rawContent === 'string' && rawContent.trim() ? rawContent : '';
+
+    if (safeContent.startsWith('data:') || safeContent.startsWith('http://') || safeContent.startsWith('https://') || safeContent.startsWith('blob:')) {
+      return { ...file, content: safeContent };
+    }
+
+    if (safeContent.startsWith('content://') || safeContent.startsWith('file://')) {
+      return { ...file, content: safeContent };
+    }
+
+    if (file.path.startsWith('content://') || file.path.startsWith('file://')) {
+      return { ...file, content: file.path };
+    }
+
+    if (file.path.startsWith('/')) {
+      return { ...file, content: `file://${file.path}` };
+    }
+
+    if (name.endsWith('.vrm') || name.endsWith('.glb') || name.endsWith('.gltf') || name.endsWith('.obj')) {
+      return { ...file, content: `/assets/models/${encodeURIComponent(file.name)}` };
+    }
+
+    return file;
+  };
+
   // Open or Spawn a Window (with Parent/Child Linkage)
   const openWindow = (
     type: WindowType,
@@ -328,9 +364,11 @@ export default function App() {
       }
     }
 
+    const normalizedFile = options?.file ? normalizeModelFileForViewer(options.file) : undefined;
+
     const newWin: WindowNode = {
       id: newId,
-      title: options?.title || formatWindowTitle(type, options?.file),
+      title: options?.title || formatWindowTitle(type, normalizedFile),
       type,
       parentId: options?.parentId,
       childIds: [],
@@ -341,7 +379,7 @@ export default function App() {
       zIndex: nextZIndexRef.current,
       isMinimized: false,
       isMaximized: false,
-      file: options?.file,
+      file: normalizedFile,
       payload: options?.payload
     };
 
@@ -499,17 +537,18 @@ export default function App() {
   // Recognizes VRM avatars and 3D files EVEN IF renamed to .dat, .bin, .png, etc.!
   const handleOpenFile = (file: FileItem) => {
     setSelectedFile(file);
-    const inspection = FileTypeDetector.inspect(file);
+    const normalized = normalizeModelFileForViewer(file) || file;
+    const inspection = FileTypeDetector.inspect(normalized);
 
     if (inspection.is3DModel || inspection.isVRM || file.type === 'VRM' || file.type === 'glTF') {
       openWindow('viewer_3d', {
-        file,
+        file: normalized,
         title: inspection.isVRM
           ? `3D Viewer: ${file.name} (VRM Avatar)`
           : `3D Viewer: ${file.name}`
       });
     } else {
-      openWindow('code_editor', { file, title: `Editor: ${file.name}` });
+      openWindow('code_editor', { file: normalized, title: `Editor: ${file.name}` });
     }
   };
 
@@ -616,8 +655,9 @@ export default function App() {
               (selectedFile.type === 'VRM' ||
                 selectedFile.type === 'glTF' ||
                 selectedFile.name.toLowerCase().endsWith('.vrm') ||
-                selectedFile.name.toLowerCase().endsWith('.glb'))
-                ? selectedFile
+                selectedFile.name.toLowerCase().endsWith('.glb') ||
+                selectedFile.name.toLowerCase().endsWith('.gltf'))
+                ? normalizeModelFileForViewer(selectedFile)
                 : undefined;
             openWindow('viewer_3d', { file: modelToOpen });
           }}
@@ -756,7 +796,7 @@ export default function App() {
               {win.type === 'inspector' && (
                 <InspectorPanel
                   selectedFile={win.file || selectedFile || files[0]}
-                  onOpenIn3DViewer={(f) => openWindow('viewer_3d', { file: f })}
+                  onOpenIn3DViewer={(f) => openWindow('viewer_3d', { file: normalizeModelFileForViewer(f) })}
                   onOpenInCodeEditor={(f) => openWindow('code_editor', { file: f })}
                 />
               )}
@@ -794,8 +834,9 @@ export default function App() {
             (selectedFile.type === 'VRM' ||
               selectedFile.type === 'glTF' ||
               selectedFile.name.toLowerCase().endsWith('.vrm') ||
-              selectedFile.name.toLowerCase().endsWith('.glb'))
-              ? selectedFile
+              selectedFile.name.toLowerCase().endsWith('.glb') ||
+              selectedFile.name.toLowerCase().endsWith('.gltf'))
+              ? normalizeModelFileForViewer(selectedFile)
               : undefined;
           openWindow('viewer_3d', { file: modelToOpen });
         }}
@@ -830,12 +871,12 @@ export default function App() {
         state={contextMenuState}
         onClose={() => setContextMenuState((prev) => ({ ...prev, isOpen: false }))}
         onOpenStorage={() => openWindow('file_explorer')}
-        onOpen3DViewer={(f) => openWindow('viewer_3d', { file: f })}
+        onOpen3DViewer={(f) => openWindow('viewer_3d', { file: f ? normalizeModelFileForViewer(f) : undefined })}
         onOpenInspector={(f) => openWindow('inspector', { file: f || selectedFile || files[0] })}
         onOpenTerminal={() => openWindow('terminal')}
         onOpenCustomizer={() => setIsCustomizerOpen(true)}
         onOpenCodeEditor={(f) => openWindow('code_editor', { file: f })}
-        onOpenAvatarEditor={(f) => openWindow('avatar_editor', { file: f })}
+        onOpenAvatarEditor={(f) => openWindow('avatar_editor', { file: f ? normalizeModelFileForViewer(f) : undefined })}
         onOpenAnimationStudio={() => openWindow('animation_studio')}
         onTileWindows={tileWindows}
         onCascadeWindows={cascadeWindows}
