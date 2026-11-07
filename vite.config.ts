@@ -5,6 +5,11 @@ import { defineConfig } from 'vite';
 
 export default defineConfig(() => ({
   base: './',
+  build: {
+    target: ['es2020', 'chrome80'],
+    sourcemap: false,
+    assetsDir: 'assets'
+  },
 
   plugins: [
     react(),
