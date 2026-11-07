@@ -28,6 +28,7 @@ import { FileTypeDetector } from './services/fileInspector';
 import { FileItem } from './types';
 import { WindowNode, WindowType } from './types/window';
 import { AvatarParameters, DEFAULT_AVATAR_PARAMS } from './types/avatar';
+import type { MorphMapSummary } from './services/vrmMorphMap';
 import {
   DesktopCustomization,
   DEFAULT_CUSTOMIZATION
@@ -110,6 +111,10 @@ export default function App() {
 
   // Avatar Morph & Color State
   const [avatarParams, setAvatarParams] = useState<AvatarParameters>(DEFAULT_AVATAR_PARAMS);
+  // Verified morph map for the model loaded in the 3D viewer (built by
+  // Viewer3D's inspectModel). Shared with the AvatarEditor so it can enable
+  // only the sliders whose target was verified on that model.
+  const [morphMap, setMorphMap] = useState<MorphMapSummary | null>(null);
 
   // Animation Studio playback state
   const [selectedAnim, setSelectedAnim] = useState<string>('idle');
@@ -720,6 +725,7 @@ export default function App() {
                   file={win.file}
                   avatarParams={avatarParams}
                   onAvatarParamsChange={setAvatarParams}
+                  onMorphMapChange={setMorphMap}
                   onOpenAvatarEditor={() =>
                     openWindow('avatar_editor', {
                       parentId: win.id,
@@ -741,6 +747,7 @@ export default function App() {
                 <AvatarEditor
                   params={avatarParams}
                   onChange={setAvatarParams}
+                  morphMap={morphMap}
                   onOpenColorPicker={(targetProp, targetLabel) =>
                     openWindow('color_picker', {
                       parentId: win.id,

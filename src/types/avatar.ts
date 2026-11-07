@@ -7,11 +7,15 @@ export interface AvatarParameters {
   waistWidth: number;      // 0.7 to 1.3
   hipWidth: number;        // 0.8 to 1.4
   legLength: number;       // 0.8 to 1.3
+  legThickness: number;    // 0.8 to 1.3
+  armLength: number;       // 0.8 to 1.3
   armThickness: number;    // 0.8 to 1.3
 
   // Face Sliders
   eyeScale: number;        // 0.7 to 1.4
   eyeSpacing: number;      // -0.03 to 0.03
+  browRaise: number;       // -1 (down) to 1 (up); VRM brow morphs only
+  mouthOpen: number;       // 0 to 1; VRM mouth morph only
   chinWidth: number;       // 0.8 to 1.2
   earSize: number;         // 0.6 to 1.5
 
@@ -40,10 +44,14 @@ export const DEFAULT_AVATAR_PARAMS: AvatarParameters = {
   waistWidth: 1.0,
   hipWidth: 1.0,
   legLength: 1.0,
+  legThickness: 1.0,
+  armLength: 1.0,
   armThickness: 1.0,
 
   eyeScale: 1.0,
   eyeSpacing: 0.0,
+  browRaise: 0,
+  mouthOpen: 0,
   chinWidth: 1.0,
   earSize: 1.0,
 

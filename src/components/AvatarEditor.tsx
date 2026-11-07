@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Sparkles,
   User,
@@ -16,31 +16,58 @@ import {
   Layers,
   ShoppingBag,
   Undo2,
-  Redo2
+  Redo2,
+  FolderOpen,
+  ListChecks,
+  AlertCircle
 } from 'lucide-react';
-import { AvatarParameters, AVATAR_PRESETS } from '../types/avatar';
+import { AvatarParameters, AVATAR_PRESETS, DEFAULT_AVATAR_PARAMS } from '../types/avatar';
 import { FileManagerService } from '../services/fileManager';
+import {
+  EDITOR_CONTROLS,
+  controlStatus,
+  type MorphControlDef,
+  type MorphMapSummary,
+} from '../services/vrmMorphMap';
+import { exportCurrentModelAsGlb } from '../services/modelExport';
+
+const PRESET_DIR = '/storage/emulated/0/Projects/Chimera/VRM_Models';
+const PRESET_EXT = '.avatar.json';
 
 interface AvatarEditorProps {
   params: AvatarParameters;
   onChange: (newParams: AvatarParameters) => void;
+  /** Verified morph map for the model loaded in the 3D viewer (via App). */
+  morphMap?: MorphMapSummary | null;
   onSaveToFile?: (filename: string) => void;
   onClose?: () => void;
   onOpenColorPicker?: (targetProp: keyof AvatarParameters, targetLabel: string) => void;
   onOpenAssetBrowser?: () => void;
 }
 
+type Category = 'body' | 'face' | 'hair' | 'outfit' | 'colors' | 'presets' | 'mapping';
+
 export const AvatarEditor: React.FC<AvatarEditorProps> = ({
   params,
   onChange,
+  morphMap = null,
   onSaveToFile,
   onClose,
   onOpenColorPicker,
   onOpenAssetBrowser
 }) => {
-  const [activeCategory, setActiveCategory] = useState<'body' | 'face' | 'hair' | 'outfit' | 'colors' | 'presets'>('body');
+  const [activeCategory, setActiveCategory] = useState<Category>('body');
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [saveName, setSaveName] = useState('Vessel_custom.vrm');
+  const [saveName, setSaveName] = useState('Vessel_custom');
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
+  const [savedPresets, setSavedPresets] = useState<Array<{ name: string; path: string }>>([]);
+
+  // Defensive merge: presets saved before new sliders existed (armLength,
+  // legThickness, browRaise, mouthOpen) load without those keys.
+  const safeParams: AvatarParameters = useMemo(
+    () => ({ ...DEFAULT_AVATAR_PARAMS, ...params }),
+    [params]
+  );
 
   // Undo / Redo Stacks
   const [undoStack, setUndoStack] = useState<AvatarParameters[]>([]);
@@ -100,139 +127,270 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
   const eyePresets = ['#1d4ed8', '#0284c7', '#9333ea', '#ec4899', '#059669', '#d97706', '#dc2626', '#334155'];
   const neonPresets = ['#38bdf8', '#22c55e', '#a855f7', '#fb7185', '#fbbf24', '#06b6d4'];
 
-  // Randomize Avatar
+  const statusOf = (id: string) => controlStatus(morphMap, id);
+  const verifiedCount = morphMap?.controls.filter((c) => c.status === 'verified').length ?? 0;
+  const unavailableCount = morphMap?.controls.filter((c) => c.status === 'unavailable').length ?? 0;
+
+  // Randomize — only controls verified on the loaded model. Randomizing an
+  // unverified slider would be pointless: it has no effect on this model.
   const handleRandomize = () => {
     pushHistoryState(params);
 
     const randomItem = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
     const randomRange = (min: number, max: number) => parseFloat((Math.random() * (max - min) + min).toFixed(2));
 
-    const randomized: AvatarParameters = {
-      height: randomRange(0.85, 1.2),
-      headScale: randomRange(0.9, 1.15),
-      bustSize: randomRange(0.7, 1.45),
-      shoulderWidth: randomRange(0.85, 1.2),
-      waistWidth: randomRange(0.8, 1.2),
-      hipWidth: randomRange(0.85, 1.3),
-      legLength: randomRange(0.85, 1.25),
-      armThickness: randomRange(0.85, 1.2),
-
-      eyeScale: randomRange(0.8, 1.3),
-      eyeSpacing: randomRange(-0.02, 0.02),
-      chinWidth: randomRange(0.85, 1.15),
-      earSize: randomRange(0.7, 1.4),
-
-      skinColor: randomItem(skinPresets),
-      hairColor: randomItem(hairPresets),
-      hairHighlightColor: randomItem(hairPresets),
-      eyeColor: randomItem(eyePresets),
-      coatColor: randomItem(['#121b2d', '#1e1b4b', '#3b0764', '#0f172a', '#3f3f46']),
-      innerColor: randomItem(['#f1f5f9', '#ffffff', '#020617', '#fae8ff']),
-      accentNeonColor: randomItem(neonPresets),
-      bootsColor: randomItem(['#0f172a', '#1e293b', '#2e1065', '#450a0a']),
-
-      hairstyle: randomItem(['twintails', 'bobcut', 'longwaves', 'spiky', 'ponytail', 'short']),
-      accessory: randomItem(['cat_ears', 'kitsune', 'elf_ears', 'cyber_horns', 'headphones', 'none']),
-      outfit: randomItem(['cyber_jacket', 'mmo_tunic', 'school_uniform', 'combat_suit', 'hoodie']),
-      expression: randomItem(['neutral', 'smile', 'wink', 'fierce', 'surprised'])
-    };
+    const randomized: AvatarParameters = { ...safeParams };
+    for (const def of EDITOR_CONTROLS) {
+      if (statusOf(def.id).status !== 'verified') continue;
+      if (def.kind === 'slider' && def.min !== undefined && def.max !== undefined) {
+        (randomized as unknown as Record<string, unknown>)[def.id] = randomRange(def.min, def.max);
+      } else if (def.kind === 'color') {
+        const pool =
+          def.id === 'skinColor' ? skinPresets
+          : def.id === 'eyeColor' ? eyePresets
+          : def.id === 'accentNeonColor' ? neonPresets
+          : hairPresets;
+        (randomized as unknown as Record<string, unknown>)[def.id] = randomItem(pool);
+      } else if (def.kind === 'choice' && def.choices) {
+        (randomized as unknown as Record<string, unknown>)[def.id] = randomItem(def.choices).id;
+      }
+    }
 
     onChange(randomized);
   };
 
-  const handleSave = () => {
-    const fs = FileManagerService.getInstance();
-    const cleanName = saveName.endsWith('.vrm') || saveName.endsWith('.json') ? saveName : `${saveName}.vrm`;
-    const avatarConfigContent = JSON.stringify(
+  // -- Named preset persistence (FileManager / localStorage) -----------------
+  const refreshSavedPresets = () => {
+    try {
+      const fs = FileManagerService.getInstance();
+      const files = fs.getFilesByPath(PRESET_DIR);
+      setSavedPresets(
+        files
+          .filter((f) => f.name.endsWith(PRESET_EXT))
+          .map((f) => ({ name: f.name, path: f.path }))
+      );
+    } catch {
+      setSavedPresets([]);
+    }
+  };
+
+  useEffect(() => {
+    if (activeCategory === 'presets') refreshSavedPresets();
+  }, [activeCategory]);
+
+  const presetFileName = () => {
+    const base = saveName.trim().replace(/\.[^/.]+$/, '') || 'avatar';
+    return `${base}${PRESET_EXT}`;
+  };
+
+  const presetJson = () =>
+    JSON.stringify(
       {
-        format: 'VRM/AlchemiaCustomCast',
-        version: '1.0',
+        format: 'StorageLauncherAvatarPreset',
+        version: 2,
+        model: morphMap?.modelName || null,
         savedAt: new Date().toISOString(),
-        parameters: params
+        parameters: safeParams
       },
       null,
       2
     );
 
-    fs.createFile('/storage/emulated/0/Projects/Chimera/VRM_Models', cleanName, 'VRM', avatarConfigContent);
-    if (onSaveToFile) onSaveToFile(cleanName);
+  const handleSave = () => {
+    const fs = FileManagerService.getInstance();
+    const fileName = presetFileName();
+    fs.createFile(PRESET_DIR, fileName, 'JSON', presetJson());
+    if (onSaveToFile) onSaveToFile(fileName);
+    refreshSavedPresets();
 
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 2000);
   };
 
-  // Full VRM File Serialization & Direct Browser Download Export Function
-  const handleExportVrmDownload = () => {
-    const cleanName = saveName.endsWith('.vrm')
-      ? saveName
-      : `${saveName.replace(/\.[^/.]+$/, '')}.vrm`;
+  const handleLoadSavedPreset = (fileName: string) => {
+    try {
+      const fs = FileManagerService.getInstance();
+      const files = fs.getFilesByPath(PRESET_DIR);
+      const found = files.find((f) => f.name === fileName);
+      const content = found?.content || fs.readFileContent(found?.path || '', false);
+      const parsed = JSON.parse(content || '');
+      const loaded = { ...DEFAULT_AVATAR_PARAMS, ...(parsed.parameters || {}) } as AvatarParameters;
+      pushHistoryState(params);
+      onChange(loaded);
+      setSaveName(fileName.replace(PRESET_EXT, ''));
+      setExportStatus(`Loaded preset ${fileName}.`);
+      setTimeout(() => setExportStatus(null), 3000);
+    } catch {
+      setExportStatus(`Could not load ${fileName} — the file is not a valid preset.`);
+      setTimeout(() => setExportStatus(null), 4000);
+    }
+  };
 
-    const vrmExportData = {
-      asset: {
-        version: '2.0',
-        generator: 'Savage VRM Studio 2026 Engine'
-      },
-      extensionsUsed: ['VRMC_vrm', 'VRMC_materials_mtoon'],
-      extensions: {
-        VRMC_vrm: {
-          specVersion: '1.0',
-          meta: {
-            name: cleanName.replace('.vrm', ''),
-            authors: ['Savage VRM Studio User'],
-            avatarPermission: 'everyone',
-            allowExcessivelyViolentUsage: true,
-            allowExcessivelySexualUsage: true,
-            commercialUsage: 'personalUse',
-            version: '1.0'
-          },
-          humanoid: {
-            humanBones: {
-              hips: { node: 0 },
-              spine: { node: 1 },
-              chest: { node: 2 },
-              neck: { node: 3 },
-              head: { node: 4 },
-              leftUpperArm: { node: 5 },
-              rightUpperArm: { node: 6 },
-              leftLowerArm: { node: 7 },
-              rightLowerArm: { node: 8 },
-              leftUpperLeg: { node: 9 },
-              rightUpperLeg: { node: 10 },
-              leftLowerLeg: { node: 11 },
-              rightLowerLeg: { node: 12 }
-            }
-          },
-          avatarParameters: params,
-          exportedAt: new Date().toISOString()
-        }
-      }
-    };
-
-    const fs = FileManagerService.getInstance();
-    fs.createFile(
-      '/storage/emulated/0/Projects/Chimera/VRM_Models',
-      cleanName,
-      'VRM',
-      JSON.stringify(vrmExportData, null, 2)
-    );
-    if (onSaveToFile) onSaveToFile(cleanName);
-
-    // Direct Browser Download
-    const blob = new Blob([JSON.stringify(vrmExportData, null, 2)], {
-      type: 'model/gltf+json'
-    });
-    const blobUrl = URL.createObjectURL(blob);
+  const handleExportPresetJson = () => {
+    const fileName = presetFileName();
+    const blob = new Blob([presetJson()], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = blobUrl;
-    link.download = cleanName;
+    link.href = url;
+    link.download = fileName;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    URL.revokeObjectURL(blobUrl);
-
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 2000);
+    URL.revokeObjectURL(url);
+    setExportStatus(`Downloaded preset ${fileName}.`);
+    setTimeout(() => setExportStatus(null), 3000);
   };
+
+  // Export the loaded model as .glb. NOTE: this is real glTF export, NOT a
+  // .vrm. The old editor wrote a JSON blob with a VRMC_vrm header and
+  // invented bone-node numbers and called it ".vrm" — that file was not a
+  // valid VRM. GLTFExporter cannot write the VRM extension, so the honest
+  // export is .glb (valid glTF 2.0, keeps the morphed mesh) with the
+  // limitation stated in the UI and in services/modelExport.ts.
+  const handleExportGlb = async () => {
+    setExportStatus('Exporting .glb…');
+    const result = await exportCurrentModelAsGlb();
+    if (result.ok) {
+      setExportStatus(`Saved ${result.fileName} — ${result.note}`);
+    } else {
+      setExportStatus(`Export failed: ${result.reason}`);
+    }
+  };
+
+  // -- Map-driven control renderers ------------------------------------------
+  const renderSlider = (def: MorphControlDef) => {
+    const st = statusOf(def.id);
+    const value = (safeParams as unknown as Record<string, number>)[def.id] ?? def.min ?? 0;
+    return (
+      <div key={def.id} className="space-y-1">
+        <div className="flex justify-between text-[10px] text-slate-400">
+          <span>
+            {def.label}
+            {st.status === 'verified' && <span className="text-emerald-400 ml-1" title={st.target}>✓</span>}
+          </span>
+          <span className="font-mono-code text-slate-200">
+            {def.id === 'eyeSpacing' ? `${value >= 0 ? '+' : ''}${value.toFixed(3)}` : value.toFixed(2)}
+            {def.id === 'browRaise' || def.id === 'mouthOpen' ? '' : 'x'}
+          </span>
+        </div>
+        <input
+          type="range"
+          min={def.min}
+          max={def.max}
+          step={def.step}
+          value={value}
+          disabled={st.status !== 'verified'}
+          onChange={(e) => updateParam(def.id as keyof AvatarParameters, parseFloat(e.target.value) as never)}
+          className="w-full h-1.5 bg-[#172a45] rounded-lg appearance-none cursor-pointer accent-[#38bdf8] disabled:opacity-40 disabled:cursor-not-allowed"
+        />
+        {st.status === 'verified' ? (
+          <div className="text-[9px] text-slate-500 leading-tight" title={st.target}>
+            → {st.target}
+          </div>
+        ) : (
+          <div className="text-[9px] text-amber-300/80 leading-tight flex items-start gap-1">
+            <AlertCircle className="w-2.5 h-2.5 shrink-0 mt-px" />
+            <span>Disabled on this model: {st.reason}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderChoiceGroup = (def: MorphControlDef) => {
+    const st = statusOf(def.id);
+    const current = (safeParams as unknown as Record<string, string>)[def.id];
+    return (
+      <div key={def.id}>
+        <div className="text-[11px] font-semibold text-slate-300 mb-1.5">
+          {def.label}
+          {st.status === 'verified' && <span className="text-emerald-400 ml-1" title={st.target}>✓</span>}
+        </div>
+        <div className="grid grid-cols-2 gap-1.5">
+          {(def.choices || []).map((choice) => (
+            <button
+              key={choice.id}
+              disabled={st.status !== 'verified'}
+              onClick={() => updateParam(def.id as keyof AvatarParameters, choice.id as never)}
+              className={`py-1.5 px-2 rounded text-[11px] font-medium border text-left flex items-center justify-between transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                current === choice.id
+                  ? 'bg-[#0e3a6a] text-white border-[#38bdf8] shadow-[0_0_8px_rgba(56,189,248,0.3)]'
+                  : 'bg-[#0b1220] text-slate-400 border-[#172a45] hover:text-white'
+              }`}
+            >
+              <span className="truncate">{choice.label}</span>
+              {current === choice.id && <Check className="w-3 h-3 text-[#38bdf8] shrink-0" />}
+            </button>
+          ))}
+        </div>
+        {st.status !== 'verified' && (
+          <div className="text-[9px] text-amber-300/80 leading-tight flex items-start gap-1 mt-1">
+            <AlertCircle className="w-2.5 h-2.5 shrink-0 mt-px" />
+            <span>Disabled on this model: {st.reason}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderColorRow = (def: MorphControlDef, swatches: string[], colorPickerTarget?: keyof AvatarParameters) => {
+    const st = statusOf(def.id);
+    const value = (safeParams as unknown as Record<string, string>)[def.id] || '#ffffff';
+    return (
+      <div key={def.id} className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-semibold text-slate-300">
+            {def.label}
+            {st.status === 'verified' && <span className="text-emerald-400 ml-1" title={st.target}>✓</span>}
+          </span>
+          {colorPickerTarget && onOpenColorPicker && st.status === 'verified' && (
+            <button
+              onClick={() => onOpenColorPicker(colorPickerTarget, `${def.label} Studio`)}
+              className="px-1.5 py-0.5 rounded bg-[#0e3a6a] hover:bg-[#154c86] text-cyan-300 border border-cyan-500/40 text-[9px] flex items-center gap-1 transition-colors"
+            >
+              <Palette className="w-2.5 h-2.5" />
+              <span>Color Studio ⤹</span>
+            </button>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {swatches.map((c) => (
+            <button
+              key={c}
+              disabled={st.status !== 'verified'}
+              onClick={() => updateParam(def.id as keyof AvatarParameters, c as never)}
+              style={{ backgroundColor: c }}
+              className={`w-6 h-6 rounded-full border transition-transform disabled:opacity-40 disabled:cursor-not-allowed ${
+                value === c ? 'scale-120 border-white ring-2 ring-[#38bdf8]' : 'border-white/20'
+              }`}
+            />
+          ))}
+          <input
+            type="color"
+            value={value}
+            disabled={st.status !== 'verified'}
+            onChange={(e) => updateParam(def.id as keyof AvatarParameters, e.target.value as never)}
+            className="w-6 h-6 rounded-full cursor-pointer bg-transparent border-0 disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Custom Color"
+          />
+        </div>
+        {st.status === 'verified' ? (
+          <div className="text-[9px] text-slate-500 leading-tight" title={st.target}>
+            → {st.target}
+          </div>
+        ) : (
+          <div className="text-[9px] text-amber-300/80 leading-tight flex items-start gap-1">
+            <AlertCircle className="w-2.5 h-2.5 shrink-0 mt-px" />
+            <span>Disabled on this model: {st.reason}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const defById = (id: string) => EDITOR_CONTROLS.find((d) => d.id === id)!;
+  const slidersFor = (section: string) =>
+    EDITOR_CONTROLS.filter((d) => d.section === section && d.kind === 'slider');
 
   return (
     <div className="flex flex-col h-full bg-[#080c14] border border-[#172a45] rounded-sm overflow-hidden select-none text-xs">
@@ -290,7 +448,7 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
           <button
             onClick={handleRandomize}
             className="p-1 rounded bg-[#0d1627] hover:bg-[#162744] text-slate-300 hover:text-[#38bdf8] border border-[#172a45] transition-colors"
-            title="Randomize Character"
+            title="Randomize Character (verified controls only)"
           >
             <Dices className="w-3.5 h-3.5" />
           </button>
@@ -314,13 +472,14 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
           { id: 'outfit', label: 'Outfit', icon: Shirt },
           { id: 'colors', label: 'Colors', icon: Palette },
           { id: 'presets', label: 'Presets', icon: Layers },
+          { id: 'mapping', label: 'Mapping', icon: ListChecks },
         ].map((cat) => {
           const Icon = cat.icon;
           const isActive = activeCategory === cat.id;
           return (
             <button
               key={cat.id}
-              onClick={() => setActiveCategory(cat.id as any)}
+              onClick={() => setActiveCategory(cat.id as Category)}
               className={`flex items-center gap-1 py-1 px-2 rounded text-[11px] font-medium transition-all shrink-0 ${
                 isActive
                   ? 'bg-[#0e3a6a] text-white border border-[#38bdf8]/50 shadow-[0_0_8px_rgba(56,189,248,0.2)]'
@@ -334,105 +493,48 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
         })}
       </div>
 
+      {/* Model verification banner */}
+      <div className="px-2.5 py-1.5 bg-[#090e18] border-b border-[#172a45] text-[10px] leading-relaxed shrink-0">
+        {morphMap ? (
+          <span className="text-slate-400">
+            Model: <span className="text-slate-200 font-mono-code">{morphMap.modelName}</span> —{' '}
+            <span className="text-emerald-400">{verifiedCount} sliders verified</span>,{' '}
+            <span className="text-amber-300">{unavailableCount} disabled</span> (no verified target on this model).
+            Every slider morphs only the section it names.{' '}
+            <button onClick={() => setActiveCategory('mapping')} className="text-cyan-300 underline">
+              See mapping
+            </button>
+          </span>
+        ) : (
+          <span className="text-amber-300/90">
+            No model loaded in the 3D viewer yet — sliders stay disabled until a model is loaded and its bones /
+            morphs / materials are verified.
+          </span>
+        )}
+      </div>
+
       {/* Body Content */}
       <div className="flex-1 p-2.5 overflow-y-auto space-y-3 bg-[#070b13]">
         {/* BODY SLIDERS */}
         {activeCategory === 'body' && (
           <div className="space-y-2.5">
             <div className="text-[11px] font-semibold text-slate-300 flex items-center justify-between">
-              <span>Proportions & Skeletal Morphs</span>
+              <span>Proportions — verified targets only</span>
               <span className="font-mono-code text-[#38bdf8] text-[10px]">
-                {(params.height * 160).toFixed(0)} cm
+                {(safeParams.height * 160).toFixed(0)} cm
               </span>
             </div>
-
-            {[
-              { label: 'Overall Height', key: 'height', min: 0.8, max: 1.25, step: 0.01 },
-              { label: 'Head Proportions', key: 'headScale', min: 0.85, max: 1.2, step: 0.01 },
-              { label: 'Chest / Bust Size', key: 'bustSize', min: 0.6, max: 1.6, step: 0.01 },
-              { label: 'Shoulder Width', key: 'shoulderWidth', min: 0.8, max: 1.3, step: 0.01 },
-              { label: 'Waist Width', key: 'waistWidth', min: 0.7, max: 1.3, step: 0.01 },
-              { label: 'Hip Width', key: 'hipWidth', min: 0.8, max: 1.4, step: 0.01 },
-              { label: 'Leg Length', key: 'legLength', min: 0.8, max: 1.3, step: 0.01 },
-              { label: 'Arm Thickness', key: 'armThickness', min: 0.8, max: 1.3, step: 0.01 },
-            ].map((slider) => (
-              <div key={slider.key} className="space-y-1">
-                <div className="flex justify-between text-[10px] text-slate-400">
-                  <span>{slider.label}</span>
-                  <span className="font-mono-code text-slate-200">
-                    {(params as any)[slider.key].toFixed(2)}x
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min={slider.min}
-                  max={slider.max}
-                  step={slider.step}
-                  value={(params as any)[slider.key]}
-                  onChange={(e) => updateParam(slider.key as any, parseFloat(e.target.value))}
-                  className="w-full h-1.5 bg-[#172a45] rounded-lg appearance-none cursor-pointer accent-[#38bdf8]"
-                />
-              </div>
-            ))}
+            {slidersFor('body').map(renderSlider)}
           </div>
         )}
 
         {/* FACE & EXPRESSION */}
         {activeCategory === 'face' && (
           <div className="space-y-3">
-            {/* Expression Switcher */}
-            <div>
-              <div className="text-[11px] font-semibold text-slate-300 mb-1.5">Facial Expression</div>
-              <div className="grid grid-cols-3 gap-1.5">
-                {[
-                  { id: 'neutral', label: 'Neutral' },
-                  { id: 'smile', label: 'Smile' },
-                  { id: 'wink', label: 'Wink' },
-                  { id: 'fierce', label: 'Fierce' },
-                  { id: 'surprised', label: 'Surprised' },
-                ].map((expr) => (
-                  <button
-                    key={expr.id}
-                    onClick={() => updateParam('expression', expr.id as any)}
-                    className={`py-1.5 px-2 rounded text-[11px] font-medium border text-center transition-colors ${
-                      params.expression === expr.id
-                        ? 'bg-[#0e3a6a] text-white border-[#38bdf8] shadow-[0_0_8px_rgba(56,189,248,0.3)]'
-                        : 'bg-[#0b1220] text-slate-400 border-[#172a45] hover:text-white'
-                    }`}
-                  >
-                    {expr.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Face sliders */}
+            {renderChoiceGroup(defById('expression'))}
             <div className="space-y-2 pt-2 border-t border-[#172a45]">
               <div className="text-[11px] font-semibold text-slate-300">Feature Scaling</div>
-              {[
-                { label: 'Anime Eye Scale', key: 'eyeScale', min: 0.7, max: 1.4, step: 0.01 },
-                { label: 'Eye Spacing', key: 'eyeSpacing', min: -0.03, max: 0.03, step: 0.002 },
-                { label: 'Chin & Jaw Width', key: 'chinWidth', min: 0.8, max: 1.2, step: 0.01 },
-                { label: 'Ear / Accessory Size', key: 'earSize', min: 0.6, max: 1.5, step: 0.02 },
-              ].map((slider) => (
-                <div key={slider.key} className="space-y-1">
-                  <div className="flex justify-between text-[10px] text-slate-400">
-                    <span>{slider.label}</span>
-                    <span className="font-mono-code text-slate-200">
-                      {(params as any)[slider.key].toFixed(2)}x
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min={slider.min}
-                    max={slider.max}
-                    step={slider.step}
-                    value={(params as any)[slider.key]}
-                    onChange={(e) => updateParam(slider.key as any, parseFloat(e.target.value))}
-                    className="w-full h-1.5 bg-[#172a45] rounded-lg appearance-none cursor-pointer accent-[#38bdf8]"
-                  />
-                </div>
-              ))}
+              {slidersFor('face').map(renderSlider)}
             </div>
           </div>
         )}
@@ -440,101 +542,12 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
         {/* HAIR & STYLES */}
         {activeCategory === 'hair' && (
           <div className="space-y-3">
-            <div>
-              <div className="text-[11px] font-semibold text-slate-300 mb-1.5">Hairstyle Preset</div>
-              <div className="grid grid-cols-2 gap-1.5">
-                {[
-                  { id: 'twintails', label: 'Twin Tails (Vessel)' },
-                  { id: 'bobcut', label: 'Cute Bob Cut' },
-                  { id: 'longwaves', label: 'Long Waves (MMO)' },
-                  { id: 'spiky', label: 'Cyber Spiky' },
-                  { id: 'ponytail', label: 'High Ponytail' },
-                  { id: 'short', label: 'Short Crop' },
-                ].map((style) => (
-                  <button
-                    key={style.id}
-                    onClick={() => updateParam('hairstyle', style.id as any)}
-                    className={`py-1.5 px-2 rounded text-[11px] font-medium border text-left flex items-center justify-between transition-colors ${
-                      params.hairstyle === style.id
-                        ? 'bg-[#0e3a6a] text-white border-[#38bdf8] shadow-[0_0_8px_rgba(56,189,248,0.3)]'
-                        : 'bg-[#0b1220] text-slate-400 border-[#172a45] hover:text-white'
-                    }`}
-                  >
-                    <span className="truncate">{style.label}</span>
-                    {params.hairstyle === style.id && <Check className="w-3 h-3 text-[#38bdf8] shrink-0" />}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Hair Color */}
+            {renderChoiceGroup(defById('hairstyle'))}
             <div className="space-y-2 pt-2 border-t border-[#172a45]">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-slate-300">Base Hair Tone</span>
-                {onOpenColorPicker && (
-                  <button
-                    onClick={() => onOpenColorPicker('hairColor', 'Hair Color Studio')}
-                    className="px-1.5 py-0.5 rounded bg-[#0e3a6a] hover:bg-[#154c86] text-cyan-300 border border-cyan-500/40 text-[9px] flex items-center gap-1 transition-colors"
-                  >
-                    <Palette className="w-2.5 h-2.5" />
-                    <span>Color Studio ⤹</span>
-                  </button>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {hairPresets.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => updateParam('hairColor', c)}
-                    style={{ backgroundColor: c }}
-                    className={`w-6 h-6 rounded-full border transition-transform ${
-                      params.hairColor === c ? 'scale-120 border-white ring-2 ring-[#38bdf8]' : 'border-white/20'
-                    }`}
-                  />
-                ))}
-                <input
-                  type="color"
-                  value={params.hairColor}
-                  onChange={(e) => updateParam('hairColor', e.target.value)}
-                  className="w-6 h-6 rounded-full cursor-pointer bg-transparent border-0"
-                  title="Custom Color"
-                />
-              </div>
+              {renderColorRow(defById('hairColor'), hairPresets, 'hairColor')}
             </div>
-
-            {/* Hair Highlights */}
             <div className="space-y-2 pt-2 border-t border-[#172a45]">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-slate-300">Highlights & Gradient Tips</span>
-                {onOpenColorPicker && (
-                  <button
-                    onClick={() => onOpenColorPicker('hairHighlightColor', 'Highlight Color Studio')}
-                    className="px-1.5 py-0.5 rounded bg-[#0e3a6a] hover:bg-[#154c86] text-cyan-300 border border-cyan-500/40 text-[9px] flex items-center gap-1 transition-colors"
-                  >
-                    <Palette className="w-2.5 h-2.5" />
-                    <span>Color Studio ⤹</span>
-                  </button>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {hairPresets.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => updateParam('hairHighlightColor', c)}
-                    style={{ backgroundColor: c }}
-                    className={`w-6 h-6 rounded-full border transition-transform ${
-                      params.hairHighlightColor === c ? 'scale-120 border-white ring-2 ring-pink-400' : 'border-white/20'
-                    }`}
-                  />
-                ))}
-                <input
-                  type="color"
-                  value={params.hairHighlightColor}
-                  onChange={(e) => updateParam('hairHighlightColor', e.target.value)}
-                  className="w-6 h-6 rounded-full cursor-pointer bg-transparent border-0"
-                  title="Custom Highlight Color"
-                />
-              </div>
+              {renderColorRow(defById('hairHighlightColor'), hairPresets, 'hairHighlightColor')}
             </div>
           </div>
         )}
@@ -566,100 +579,38 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
               </div>
             )}
 
-            {/* Outfits */}
-            <div>
-              <div className="text-[11px] font-semibold text-slate-300 mb-1.5">Wardrobe</div>
-              <div className="grid grid-cols-2 gap-1.5">
-                {[
-                  { id: 'cyber_jacket', label: 'Cyber Jacket & Shorts' },
-                  { id: 'mmo_tunic', label: 'Alchemia Sorcery Robe' },
-                  { id: 'school_uniform', label: 'Custom Cast Uniform' },
-                  { id: 'combat_suit', label: 'Vanguard Exosuit' },
-                  { id: 'hoodie', label: 'Street Tech Hoodie' },
-                ].map((outfit) => (
-                  <button
-                    key={outfit.id}
-                    onClick={() => updateParam('outfit', outfit.id as any)}
-                    className={`py-1.5 px-2 rounded text-[11px] font-medium border text-left flex items-center justify-between transition-colors ${
-                      params.outfit === outfit.id
-                        ? 'bg-[#0e3a6a] text-white border-[#38bdf8] shadow-[0_0_8px_rgba(56,189,248,0.3)]'
-                        : 'bg-[#0b1220] text-slate-400 border-[#172a45] hover:text-white'
-                    }`}
-                  >
-                    <span className="truncate">{outfit.label}</span>
-                    {params.outfit === outfit.id && <Check className="w-3 h-3 text-[#38bdf8] shrink-0" />}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Accessories / Ears */}
+            {renderChoiceGroup(defById('outfit'))}
             <div className="pt-2 border-t border-[#172a45]">
-              <div className="text-[11px] font-semibold text-slate-300 mb-1.5">Headwear & Ears</div>
-              <div className="grid grid-cols-3 gap-1.5">
-                {[
-                  { id: 'cat_ears', label: 'Cat Ears' },
-                  { id: 'kitsune', label: 'Fox Ears' },
-                  { id: 'elf_ears', label: 'Elf Ears' },
-                  { id: 'cyber_horns', label: 'Cyber Horns' },
-                  { id: 'headphones', label: 'Headphones' },
-                  { id: 'none', label: 'None' },
-                ].map((acc) => (
-                  <button
-                    key={acc.id}
-                    onClick={() => updateParam('accessory', acc.id as any)}
-                    className={`py-1 px-1.5 rounded text-[10px] font-medium border text-center transition-colors ${
-                      params.accessory === acc.id
-                        ? 'bg-[#0e3a6a] text-white border-[#38bdf8]'
-                        : 'bg-[#0b1220] text-slate-400 border-[#172a45] hover:text-white'
-                    }`}
-                  >
-                    {acc.label}
-                  </button>
-                ))}
-              </div>
+              {renderChoiceGroup(defById('accessory'))}
             </div>
-
-            {/* Colors for Outfit */}
             <div className="space-y-2 pt-2 border-t border-[#172a45]">
               <div className="text-[11px] font-semibold text-slate-300">Outfit Shading</div>
               <div className="grid grid-cols-2 gap-2 text-[10px]">
-                <div className="p-2 rounded bg-[#0b1220] border border-[#172a45] flex items-center justify-between">
-                  <span>Jacket Coat</span>
-                  <input
-                    type="color"
-                    value={params.coatColor}
-                    onChange={(e) => updateParam('coatColor', e.target.value)}
-                    className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent"
-                  />
-                </div>
-                <div className="p-2 rounded bg-[#0b1220] border border-[#172a45] flex items-center justify-between">
-                  <span>Inner Top</span>
-                  <input
-                    type="color"
-                    value={params.innerColor}
-                    onChange={(e) => updateParam('innerColor', e.target.value)}
-                    className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent"
-                  />
-                </div>
-                <div className="p-2 rounded bg-[#0b1220] border border-[#172a45] flex items-center justify-between">
-                  <span>Boots / Shoes</span>
-                  <input
-                    type="color"
-                    value={params.bootsColor}
-                    onChange={(e) => updateParam('bootsColor', e.target.value)}
-                    className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent"
-                  />
-                </div>
-                <div className="p-2 rounded bg-[#0b1220] border border-[#172a45] flex items-center justify-between">
-                  <span>Neon Emission</span>
-                  <input
-                    type="color"
-                    value={params.accentNeonColor}
-                    onChange={(e) => updateParam('accentNeonColor', e.target.value)}
-                    className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent"
-                  />
-                </div>
+                {(['coatColor', 'innerColor', 'bootsColor', 'accentNeonColor'] as const).map((id) => {
+                  const st = statusOf(id);
+                  const label = defById(id).label;
+                  return (
+                    <div key={id} className="p-2 rounded bg-[#0b1220] border border-[#172a45]">
+                      <div className="flex items-center justify-between">
+                        <span className={st.status === 'verified' ? '' : 'text-slate-500'}>
+                          {label}
+                          {st.status === 'verified' && <span className="text-emerald-400 ml-1">✓</span>}
+                        </span>
+                        <input
+                          type="color"
+                          value={(safeParams as unknown as Record<string, string>)[id]}
+                          disabled={st.status !== 'verified'}
+                          onChange={(e) => updateParam(id, e.target.value as never)}
+                          className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent disabled:opacity-40 disabled:cursor-not-allowed"
+                          title={st.status === 'verified' ? st.target : st.reason}
+                        />
+                      </div>
+                      {st.status !== 'verified' && (
+                        <div className="text-[9px] text-amber-300/80 leading-tight mt-1">{st.reason}</div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -668,73 +619,12 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
         {/* COLORS PALETTE MASTER */}
         {activeCategory === 'colors' && (
           <div className="space-y-3">
-            {/* Skin Tone */}
-            <div className="space-y-1.5">
-              <div className="text-[11px] font-semibold text-slate-300">Skin Tone</div>
-              <div className="flex flex-wrap gap-1.5">
-                {skinPresets.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => updateParam('skinColor', c)}
-                    style={{ backgroundColor: c }}
-                    className={`w-6 h-6 rounded-full border transition-transform ${
-                      params.skinColor === c ? 'scale-120 border-white ring-2 ring-[#38bdf8]' : 'border-white/20'
-                    }`}
-                  />
-                ))}
-                <input
-                  type="color"
-                  value={params.skinColor}
-                  onChange={(e) => updateParam('skinColor', e.target.value)}
-                  className="w-6 h-6 rounded-full cursor-pointer bg-transparent border-0"
-                />
-              </div>
-            </div>
-
-            {/* Eye Iris Color */}
+            {renderColorRow(defById('skinColor'), skinPresets)}
             <div className="space-y-1.5 pt-2 border-t border-[#172a45]">
-              <div className="text-[11px] font-semibold text-slate-300">Eye Iris Color</div>
-              <div className="flex flex-wrap gap-1.5">
-                {eyePresets.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => updateParam('eyeColor', c)}
-                    style={{ backgroundColor: c }}
-                    className={`w-6 h-6 rounded-full border transition-transform ${
-                      params.eyeColor === c ? 'scale-120 border-white ring-2 ring-[#38bdf8]' : 'border-white/20'
-                    }`}
-                  />
-                ))}
-                <input
-                  type="color"
-                  value={params.eyeColor}
-                  onChange={(e) => updateParam('eyeColor', e.target.value)}
-                  className="w-6 h-6 rounded-full cursor-pointer bg-transparent border-0"
-                />
-              </div>
+              {renderColorRow(defById('eyeColor'), eyePresets)}
             </div>
-
-            {/* Neon Glow */}
             <div className="space-y-1.5 pt-2 border-t border-[#172a45]">
-              <div className="text-[11px] font-semibold text-slate-300">Cyber Neon Emission Glow</div>
-              <div className="flex flex-wrap gap-1.5">
-                {neonPresets.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => updateParam('accentNeonColor', c)}
-                    style={{ backgroundColor: c }}
-                    className={`w-6 h-6 rounded-full border transition-transform ${
-                      params.accentNeonColor === c ? 'scale-120 border-white ring-2 ring-cyan-400' : 'border-white/20'
-                    }`}
-                  />
-                ))}
-                <input
-                  type="color"
-                  value={params.accentNeonColor}
-                  onChange={(e) => updateParam('accentNeonColor', e.target.value)}
-                  className="w-6 h-6 rounded-full cursor-pointer bg-transparent border-0"
-                />
-              </div>
+              {renderColorRow(defById('accentNeonColor'), neonPresets)}
             </div>
           </div>
         )}
@@ -749,7 +639,7 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
                   key={preset.id}
                   onClick={() => {
                     pushHistoryState(params);
-                    onChange(preset.params);
+                    onChange({ ...DEFAULT_AVATAR_PARAMS, ...preset.params });
                   }}
                   className="p-2 rounded bg-[#0b1220] hover:bg-[#121e35] border border-[#172a45] hover:border-[#38bdf8]/50 cursor-pointer transition-colors"
                 >
@@ -763,18 +653,45 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
                 </div>
               ))}
             </div>
+            <p className="text-[10px] text-slate-500 leading-relaxed">
+              Preset values for sliders this model does not support are stored in the preset but have no effect on
+              this model — they apply when you load a model that supports them.
+            </p>
+
+            {/* My saved presets */}
+            <div className="pt-2 border-t border-[#172a45]">
+              <div className="text-[11px] font-semibold text-slate-300 mb-1.5 flex items-center gap-1">
+                <FolderOpen className="w-3 h-3 text-[#38bdf8]" /> My Saved Presets
+              </div>
+              {savedPresets.length === 0 ? (
+                <div className="text-[10px] text-slate-500">No saved presets yet — save one below.</div>
+              ) : (
+                <div className="space-y-1.5">
+                  {savedPresets.map((p) => (
+                    <button
+                      key={p.path}
+                      onClick={() => handleLoadSavedPreset(p.name)}
+                      className="w-full text-left p-2 rounded bg-[#0b1220] hover:bg-[#121e35] border border-[#172a45] hover:border-[#38bdf8]/50 text-[11px] text-slate-200 font-mono-code transition-colors"
+                    >
+                      {p.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* File Save Bar */}
             <div className="p-2.5 rounded bg-[#090f1d] border border-[#172a45] space-y-2 pt-2">
-              <div className="text-[11px] font-semibold text-slate-200">Save & Export VRM File</div>
+              <div className="text-[11px] font-semibold text-slate-200">Save Preset & Export</div>
               <div className="flex items-center bg-[#060a12] border border-[#172a45] rounded overflow-hidden">
                 <input
                   type="text"
                   value={saveName}
                   onChange={(e) => setSaveName(e.target.value)}
                   className="flex-1 bg-transparent px-2 py-1 text-[11px] text-slate-200 font-mono-code outline-none"
-                  placeholder="avatar_custom.vrm"
+                  placeholder="avatar_custom"
                 />
+                <span className="text-[10px] text-slate-500 pr-1 font-mono-code">{PRESET_EXT}</span>
                 <button
                   onClick={handleSave}
                   className="px-2 py-1 bg-[#0e3a6a] hover:bg-[#154c86] text-[#38bdf8] font-medium flex items-center gap-1 transition-colors text-[10px] border-r border-[#172a45]"
@@ -783,15 +700,86 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
                   <span>Save</span>
                 </button>
                 <button
-                  onClick={handleExportVrmDownload}
+                  onClick={handleExportPresetJson}
                   className="px-2 py-1 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-medium flex items-center gap-1 transition-colors text-[10px]"
-                  title="Serialize and download as .vrm file"
+                  title="Download this preset as a .avatar.json file"
                 >
                   <Download className="w-3 h-3 text-white" />
-                  <span>Export</span>
+                  <span>Preset .json</span>
                 </button>
               </div>
+              <button
+                onClick={handleExportGlb}
+                className="w-full px-2 py-1.5 rounded bg-[#0b1220] hover:bg-[#15233a] text-slate-200 border border-[#172a45] font-medium flex items-center justify-center gap-1 text-[11px] transition-colors"
+                title="Export the loaded, morphed model as .glb (valid glTF — NOT a .vrm)"
+              >
+                <Download className="w-3 h-3 text-[#38bdf8]" />
+                <span>Export Model as .glb</span>
+              </button>
+              <p className="text-[9px] text-slate-500 leading-relaxed">
+                The .glb export is real glTF 2.0 of the morphed model — it is <b>not</b> a .vrm. VRM humanoid data,
+                expressions and spring bones are not carried over by the glTF exporter, so the file will not load as
+                a VRM avatar.
+              </p>
+              {exportStatus && (
+                <p className="text-[10px] text-cyan-200 leading-relaxed">{exportStatus}</p>
+              )}
             </div>
+          </div>
+        )}
+
+        {/* MAPPING — verified vs disabled, per control */}
+        {activeCategory === 'mapping' && (
+          <div className="space-y-3">
+            <div className="text-[11px] font-semibold text-slate-300 flex items-center gap-1">
+              <ListChecks className="w-3 h-3 text-[#38bdf8]" />
+              <span>Verified Morph Map</span>
+            </div>
+            {!morphMap ? (
+              <p className="text-[11px] text-amber-300/90 leading-relaxed">
+                No model is loaded in the 3D viewer yet. Load a model and this tab lists every slider, the exact
+                bone / morph / mesh / material it controls, and why any slider is disabled.
+              </p>
+            ) : (
+              <>
+                <p className="text-[10px] text-slate-400 leading-relaxed">
+                  Model: <span className="text-slate-200 font-mono-code">{morphMap.modelName}</span> (
+                  {morphMap.modelKind}) — {verifiedCount} verified, {unavailableCount} disabled. The same list is
+                  logged to the console as [MorphMap] when the model loads.
+                </p>
+                {morphMap.modelNote && (
+                  <p className="text-[10px] text-amber-300/90 leading-relaxed p-2 rounded bg-[#171208] border border-amber-500/30">
+                    {morphMap.modelNote}
+                  </p>
+                )}
+                <div className="space-y-1.5">
+                  {morphMap.controls.map((c) => {
+                    const def = EDITOR_CONTROLS.find((d) => d.id === c.id);
+                    return (
+                      <div key={c.id} className="p-2 rounded bg-[#0b1220] border border-[#172a45]">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-slate-100 text-[11px]">
+                            {def?.label || c.id}
+                          </span>
+                          <span
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-mono-code ${
+                              c.status === 'verified'
+                                ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40'
+                                : 'bg-[#171208] text-amber-300 border border-amber-500/40'
+                            }`}
+                          >
+                            {c.status === 'verified' ? 'VERIFIED' : 'DISABLED'}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">
+                          {c.status === 'verified' ? `→ ${c.target}` : c.reason}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -801,7 +789,7 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
         <button
           onClick={() => {
             pushHistoryState(params);
-            onChange(AVATAR_PRESETS[0].params);
+            onChange({ ...DEFAULT_AVATAR_PARAMS });
           }}
           className="px-2 py-1 rounded bg-[#0b1220] hover:bg-[#15233a] border border-[#172a45] text-slate-400 hover:text-white flex items-center gap-1 text-[10px] transition-colors"
           title="Reset Parameters to Default"
@@ -814,19 +802,19 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
           <button
             onClick={handleSave}
             className="px-2 py-1 rounded bg-[#0b1220] hover:bg-[#15233a] text-slate-300 border border-[#172a45] font-medium flex items-center gap-1 text-[10px] transition-colors"
-            title="Save to local project storage"
+            title="Save preset to local project storage"
           >
             {saveSuccess ? <Check className="w-2.5 h-2.5 text-emerald-400" /> : <Save className="w-2.5 h-2.5" />}
             <span>Save</span>
           </button>
 
           <button
-            onClick={handleExportVrmDownload}
+            onClick={handleExportGlb}
             className="px-2.5 py-1 rounded bg-[#0077d4] hover:bg-[#0088f4] text-white font-medium flex items-center gap-1 text-[10px] shadow-[0_0_8px_rgba(0,119,212,0.4)] transition-colors"
-            title="Export & Download .vrm avatar file"
+            title="Export the loaded, morphed model as .glb (valid glTF — NOT a .vrm)"
           >
             <Download className="w-2.5 h-2.5" />
-            <span>{saveSuccess ? 'Exported!' : 'Export .VRM'}</span>
+            <span>Export .glb</span>
           </button>
         </div>
       </div>
