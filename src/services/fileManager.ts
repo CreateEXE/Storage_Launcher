@@ -212,15 +212,23 @@ export class FileManagerService {
   }
 
   private load(): void {
+    // Mock INITIAL_FILES are only a web-preview fallback. On a device with
+    // native/SAF storage they must not be merged back in on every launch
+    // as if they were real files (phantom "Chimera" project files).
+    const useMock = !this.isNativeDeviceStorage();
     try {
       const storedFiles = localStorage.getItem(STORAGE_KEY);
       if (storedFiles) {
         const parsed: FileItem[] = JSON.parse(storedFiles);
-        const currentPaths = new Set(parsed.map((p) => p.path));
-        const missing = INITIAL_FILES.filter((f) => !currentPaths.has(f.path));
-        this.files = [...parsed, ...missing];
+        if (useMock) {
+          const currentPaths = new Set(parsed.map((p) => p.path));
+          const missing = INITIAL_FILES.filter((f) => !currentPaths.has(f.path));
+          this.files = [...parsed, ...missing];
+        } else {
+          this.files = [...parsed];
+        }
       } else {
-        this.files = [...INITIAL_FILES];
+        this.files = useMock ? [...INITIAL_FILES] : [];
       }
 
       const storedTree = localStorage.getItem(TREE_STORAGE_KEY);
@@ -230,17 +238,15 @@ export class FileManagerService {
         this.tree = JSON.parse(JSON.stringify(FOLDER_TREE));
       }
     } catch {
-      this.files = [...INITIAL_FILES];
+      this.files = useMock ? [...INITIAL_FILES] : [];
       this.tree = JSON.parse(JSON.stringify(FOLDER_TREE));
     }
   }
 
   private save(): void {
     try {
-      if (!this.isNativeDeviceStorage()) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(this.files));
-        localStorage.setItem(TREE_STORAGE_KEY, JSON.stringify(this.tree));
-      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.files));
+      localStorage.setItem(TREE_STORAGE_KEY, JSON.stringify(this.tree));
       this.notify();
     } catch (e) {
       console.warn('Storage save failed:', e);
@@ -451,11 +457,13 @@ export class FileManagerService {
 
     if (this.isSafActive() && window.SafStorage) {
       const isBase64 = content.startsWith('data:') && content.includes(';base64,');
-      window.SafStorage.writeSafFile(cleanParent, name, content, isBase64);
+      const writtenUri = window.SafStorage.writeSafFile(cleanParent, name, content, isBase64);
+      if (!writtenUri) throw new Error(`Failed to write file via SAF: ${path}`);
       setTimeout(() => this.syncFromNativeStorage(cleanParent, true), 10);
     } else if (this.isNativeStorageAvailable && window.AndroidStorage) {
       const isBase64 = content.startsWith('data:') && content.includes(';base64,');
-      window.AndroidStorage.writeFile(path, content, isBase64);
+      const written = window.AndroidStorage.writeFile(path, content, isBase64);
+      if (!written) throw new Error(`Failed to write file: ${path}`);
       setTimeout(() => this.syncFromNativeStorage(cleanParent, true), 10);
     }
 
@@ -490,10 +498,12 @@ export class FileManagerService {
     const path = `${cleanParent}/${folderName}`;
 
     if (this.isSafActive() && window.SafStorage) {
-      window.SafStorage.createSafDirectory(cleanParent, folderName);
+      const createdUri = window.SafStorage.createSafDirectory(cleanParent, folderName);
+      if (!createdUri) throw new Error(`Failed to create directory via SAF: ${path}`);
       setTimeout(() => this.syncFromNativeStorage(cleanParent, true), 10);
     } else if (this.isNativeStorageAvailable && window.AndroidStorage) {
-      window.AndroidStorage.createDirectory(path);
+      const created = window.AndroidStorage.createDirectory(path);
+      if (!created) throw new Error(`Failed to create directory: ${path}`);
       setTimeout(() => this.syncFromNativeStorage(cleanParent, true), 10);
     }
 
@@ -525,15 +535,24 @@ export class FileManagerService {
     }
 
     if (this.isSafActive() && window.SafStorage) {
-      window.SafStorage.deleteSafDocument(path);
+      const deleted = window.SafStorage.deleteSafDocument(path);
+      if (!deleted) return false;
       const parentDir = path.substring(0, path.lastIndexOf('/')) || this.getNativeRootPath();
+      // Remove the local entry now; the background sync will confirm it.
+      this.files = this.files.filter((f) => f.path !== path && !f.path.startsWith(`${path}/`));
+      this.removeNodeFromTree(this.tree, path);
+      this.save();
       setTimeout(() => this.syncFromNativeStorage(parentDir, true), 10);
       return true;
     }
 
     if (this.isNativeStorageAvailable && window.AndroidStorage) {
-      window.AndroidStorage.deletePath(path);
+      const deleted = window.AndroidStorage.deletePath(path);
+      if (!deleted) return false;
       const parentDir = path.substring(0, path.lastIndexOf('/'));
+      this.files = this.files.filter((f) => f.path !== path && !f.path.startsWith(`${path}/`));
+      this.removeNodeFromTree(this.tree, path);
+      this.save();
       setTimeout(() => this.syncFromNativeStorage(parentDir, true), 10);
       return true;
     }
@@ -634,8 +653,23 @@ export class FileManagerService {
   }
 
   public downloadFile(file: FileItem): void {
-    const content = file.content || this.readFileContent(file.path, true) || `[Binary payload for ${file.name}]`;
-    const blob = new Blob([content], { type: 'application/octet-stream' });
+    const content = file.content || this.readFileContent(file.path, true) || '';
+    if (!content || content.startsWith('file://') || content.startsWith('content://')) {
+      // A path string is not file data. Refuse instead of downloading a
+      // text file containing the literal path.
+      console.warn(`Cannot download ${file.name}: no file data available (got a path, not content).`);
+      return;
+    }
+    let blob: Blob;
+    if (content.startsWith('data:') && content.includes(';base64,')) {
+      const base64 = content.substring(content.indexOf(';base64,') + 8);
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      blob = new Blob([bytes], { type: 'application/octet-stream' });
+    } else {
+      blob = new Blob([content], { type: 'application/octet-stream' });
+    }
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -651,13 +685,18 @@ export class FileManagerService {
     const transferId = notif.startTransfer(fileObj.name, fileObj.size);
 
     const cleanParent = targetDir.replace(/\/+$/, '');
+    const lowerName = fileObj.name.toLowerCase();
     const isBinary =
-      fileObj.name.endsWith('.vrm') ||
-      fileObj.name.endsWith('.glb') ||
-      fileObj.name.endsWith('.gltf') ||
-      fileObj.name.endsWith('.obj') ||
-      fileObj.name.endsWith('.png') ||
-      fileObj.name.endsWith('.jpg');
+      lowerName.endsWith('.vrm') ||
+      lowerName.endsWith('.glb') ||
+      lowerName.endsWith('.gltf') ||
+      lowerName.endsWith('.obj') ||
+      lowerName.endsWith('.png') ||
+      lowerName.endsWith('.jpg') ||
+      lowerName.endsWith('.jpeg') ||
+      lowerName.endsWith('.webp') ||
+      lowerName.endsWith('.zip') ||
+      lowerName.endsWith('.pdf');
 
     let content = '';
     try {
@@ -682,12 +721,12 @@ export class FileManagerService {
       }
 
       let type: FileItem['type'] = 'Text';
-      if (fileObj.name.endsWith('.vrm')) type = 'VRM';
-      else if (fileObj.name.endsWith('.glb') || fileObj.name.endsWith('.gltf')) type = 'glTF';
-      else if (fileObj.name.endsWith('.json')) type = 'JSON';
-      else if (fileObj.name.endsWith('.cpp') || fileObj.name.endsWith('.h')) type = 'C++ Source';
-      else if (fileObj.name.endsWith('.sh')) type = 'Shell Script';
-      else if (fileObj.name.endsWith('.md')) type = 'Markdown';
+      if (lowerName.endsWith('.vrm')) type = 'VRM';
+      else if (lowerName.endsWith('.glb') || lowerName.endsWith('.gltf')) type = 'glTF';
+      else if (lowerName.endsWith('.json')) type = 'JSON';
+      else if (lowerName.endsWith('.cpp') || lowerName.endsWith('.h')) type = 'C++ Source';
+      else if (lowerName.endsWith('.sh')) type = 'Shell Script';
+      else if (lowerName.endsWith('.md')) type = 'Markdown';
 
       const fileItem = this.createFile(cleanParent, fileObj.name, type, content);
       notif.finishTransfer(transferId, true);
@@ -731,8 +770,8 @@ export class FileManagerService {
   private formatBytes(bytes: number): string {
     if (bytes === 0) return '0 B';
     const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+    const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   }
 
