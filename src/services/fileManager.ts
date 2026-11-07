@@ -548,20 +548,88 @@ export class FileManagerService {
   public renameItem(oldPath: string, newName: string): boolean {
     const item = this.files.find((f) => f.path === oldPath);
     if (!item) return false;
-
-    this.pushHistory(`Renamed '${item.name}' to '${newName}'`);
+    if (!newName || newName.includes('/') || newName.includes('\0')) return false;
+    // Folders have no copy-based rename in this service; refusing is safer
+    // than copying a folder as if it were a file and deleting the original.
+    if (item.isFolder) return false;
 
     const parent = oldPath.substring(0, oldPath.lastIndexOf('/'));
     const newPath = `${parent}/${newName}`;
+    if (newPath === oldPath) return true;
+    if (this.files.some((f) => f.path === newPath)) return false;
 
-    const isBinary = item.type === 'VRM' || item.type === 'glTF' || item.type === 'Image';
-    const content = this.readFileContent(oldPath, isBinary);
-    if (content) {
-      this.createFile(parent, newName, item.type, content);
-      this.deleteItem(oldPath);
-      return true;
+    this.pushHistory(`Renamed '${item.name}' to '${newName}'`);
+
+    const lowerName = item.name.toLowerCase();
+    const isBinary =
+      item.type === 'VRM' ||
+      item.type === 'glTF' ||
+      item.type === 'Image' ||
+      lowerName.endsWith('.vrm') ||
+      lowerName.endsWith('.glb') ||
+      lowerName.endsWith('.gltf') ||
+      lowerName.endsWith('.png') ||
+      lowerName.endsWith('.jpg') ||
+      lowerName.endsWith('.jpeg') ||
+      lowerName.endsWith('.webp') ||
+      lowerName.endsWith('.zip') ||
+      lowerName.endsWith('.pdf');
+
+    // Binary-safe read: never use a file:// path string as file content.
+    // readFileContent(oldPath, true) returns a file:// path for native
+    // files (see its early return), which the old code wrote as the new
+    // file's content and then deleted the original — data loss.
+    // Read the actual bytes as base64 from the native/SAF bridge instead.
+    let content = '';
+    let originalBase64 = '';
+    if (isBinary && (this.isSafActive() || this.isNativeStorageAvailable)) {
+      originalBase64 = this.isSafActive() && window.SafStorage
+        ? window.SafStorage.readSafFileAsBase64(oldPath)
+        : window.AndroidStorage
+          ? window.AndroidStorage.readFileAsBase64(oldPath)
+          : '';
+      if (!originalBase64) return false;
+      content = `data:application/octet-stream;base64,${originalBase64}`;
+    } else {
+      content = this.readFileContent(oldPath, isBinary);
+      // A non-empty source file must not rename to empty content. An empty
+      // text file (sizeBytes 0) is the only legitimate empty case.
+      if (!content && (item.sizeBytes || 0) > 0) return false;
+      if (isBinary && (content.startsWith('file://') || content.startsWith('content://'))) {
+        return false;
+      }
     }
 
+    this.createFile(parent, newName, item.type, content);
+
+    // Verify the copy before deleting the original. If verification fails,
+    // remove the partial new file and keep the original.
+    const copied = this.files.find((f) => f.path === newPath);
+    if (!copied) return false;
+    if (isBinary && (this.isSafActive() || this.isNativeStorageAvailable)) {
+      const copiedBase64 = this.isSafActive() && window.SafStorage
+        ? window.SafStorage.readSafFileAsBase64(newPath)
+        : window.AndroidStorage
+          ? window.AndroidStorage.readFileAsBase64(newPath)
+          : '';
+      if (!copiedBase64 || copiedBase64.length !== originalBase64.length) {
+        this.deleteItem(newPath);
+        return false;
+      }
+    } else if (!isBinary) {
+      const copiedContent = this.readFileContent(newPath, false);
+      if (copiedContent !== content) {
+        this.deleteItem(newPath);
+        return false;
+      }
+    }
+
+    const deleted = this.deleteItem(oldPath);
+    if (!deleted) {
+      // Copy succeeded but the original could not be removed. Keep both
+      // and report failure rather than claiming a successful rename.
+      return false;
+    }
     return true;
   }
 
@@ -676,3 +744,4 @@ export class FileManagerService {
     return `${m}/${day} ${h}:${min}`;
   }
 }
+
