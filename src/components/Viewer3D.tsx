@@ -15,6 +15,7 @@ import {
   ZoomOut,
   Camera,
   Maximize2,
+  RotateCw,
   Play,
   Pause,
   Sparkles,
@@ -34,13 +35,15 @@ import {
   ListChecks
 } from 'lucide-react';
 import { FileItem } from '../types';
-import { AvatarParameters, DEFAULT_AVATAR_PARAMS } from '../types/avatar';
+import { AvatarParameters, DEFAULT_AVATAR_PARAMS, getExpressionBlends, EXPRESSION_EDITOR_ID } from '../types/avatar';
 import { FileManagerService } from '../services/fileManager';
 import {
   inspectModel,
   applyVerifiedMorphs,
   toMorphMapSummary,
   logMorphMap,
+  findHeadMesh,
+  SLIDER_FACE_MORPHS,
   type MorphMap,
   type MorphMapSummary,
 } from '../services/vrmMorphMap';
@@ -116,6 +119,19 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
   const animationFrameIdRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Hair-follower bases: hair meshes are scaled by headScale in the viewer
+  // (the morph map itself only scales the head mesh). Base scales are
+  // captured on first sight so the follower writes absolute values, never
+  // accumulating. Cleared whenever a new model is inspected.
+  const hairBaseScalesRef = useRef<Map<string, THREE.Vector3>>(new Map());
+  // Bounding-box height the camera was last framed for. When a morph
+  // changes the model's size, the camera distance/target are rescaled by
+  // the same ratio so the model stays framed without resetting the orbit.
+  const lastModelHeightRef = useRef<number | null>(null);
+  // Turntable spin (a ref so the render loop sees it without a stale
+  // closure; mirrored in state for the button highlight).
+  const turntableRef = useRef(false);
+  const [turntableOn, setTurntableOn] = useState(false);
 
   const fs = FileManagerService.getInstance();
   const [showNativeStoragePicker, setShowNativeStoragePicker] = useState<boolean>(false);
@@ -339,9 +355,46 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
         accGroup.add(rightCup);
       }
 
+      // Accessories follow the head size: the group sits on the head bone,
+      // so it inherits the head bone transform, but headScale only scales
+      // the head *mesh* — the group itself must be scaled by the same
+      // factor or the ears/horns stay sized for the old head.
+      const headFactor = Math.min(1.2, Math.max(0.85, params.headScale || 1.0));
+      accGroup.scale.setScalar(headFactor);
+
       attachParent.add(accGroup);
     } catch (err) {
       console.warn('3D Accessory attachment warning:', err);
+    }
+  }, []);
+
+  // Hair follows the head size. The verified morph map scales only the
+  // head mesh for headScale (hair is a separate mesh), so the viewer scales
+  // the hair meshes by the same factor. This runs ONLY when headScale was
+  // resolved as a head-mesh scale: when it was resolved as a head group or
+  // head bone, the hair is already inside that group/bone and scales with
+  // it — scaling it again here would double the effect. Writes are
+  // absolute, from the base scale captured on first sight, so they never
+  // accumulate across param changes.
+  const applyHeadFollowers = useCallback((root: THREE.Object3D, params: AvatarParameters) => {
+    try {
+      const headRes = morphMapRef.current?.resolutions.find((r) => r.id === 'headScale');
+      const headScaleIsMesh =
+        headRes?.status === 'verified' && headRes.target.startsWith('skinned mesh');
+      if (!headScaleIsMesh) return;
+      const factor = Math.min(1.2, Math.max(0.85, params.headScale || 1.0));
+      root.traverse((obj) => {
+        const mesh = obj as THREE.Mesh;
+        if (!mesh.isMesh || !/^hair/i.test(mesh.name)) return;
+        let base = hairBaseScalesRef.current.get(mesh.uuid);
+        if (!base) {
+          base = mesh.scale.clone();
+          hairBaseScalesRef.current.set(mesh.uuid, base);
+        }
+        mesh.scale.copy(base).multiplyScalar(factor);
+      });
+    } catch (err) {
+      console.warn('Head-follower warning:', err);
     }
   }, []);
 
@@ -371,47 +424,91 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
         // face morphs, and exact-material colors. See services/vrmMorphMap.
         applyVerifiedMorphs(morphMapRef.current, params);
 
+        // Hair follows the head size (see applyHeadFollowers).
+        applyHeadFollowers(targetRoot, params);
+
         // Procedural accessories (ears / horns / headphones) attach to the
         // head bone/group and are scaled by earSize. They are additions,
         // not morphs of the model itself.
         update3DAccessories(vrm, gltfGroup, params);
 
-        // Expressions: only VRM presets the loaded model actually
-        // registered (checked by inspectModel via expressionManager).
+        // Expressions — single source of truth, same apply pass as the
+        // face sliders. The old code zeroed every preset and set one to
+        // full weight here, while the expressions bar wrote presets
+        // directly — two writers fighting over the same morph indices, so
+        // a slider change wiped a bar expression and vice versa. Now
+        // everything flows through params.expressionBlends (0–1 per VRM
+        // preset, several active at once):
+        //   1. Snapshot the morph influences the face sliders drive —
+        //      applyVerifiedMorphs just wrote them.
+        //   2. Zero every known preset, then set each blended weight.
+        //   3. Restore the snapshot: face sliders always win on the
+        //      morphs they drive, so an expression can never silently
+        //      overwrite a brow raise or eye size the user set.
         if (vrm && vrm.expressionManager && typeof vrm.expressionManager.setValue === 'function') {
-          const verifiedExpressions = morphMapRef.current?.expressionNames || [];
-          const presets = ['smile', 'wink', 'angry', 'sad', 'surprised', 'happy', 'neutral', 'blink'];
-          presets.forEach((p) => {
-            try {
-              vrm.expressionManager?.setValue(p, 0);
-            } catch {}
-          });
-
-          const vrmNameFor: Record<string, string> = {
-            smile: 'happy',
-            wink: 'blink',
-            fierce: 'angry',
-            surprised: 'surprised',
-            neutral: 'neutral',
-          };
-          try {
-            const wanted = vrmNameFor[params.expression];
-            if (wanted && verifiedExpressions.includes(params.expression)) {
-              vrm.expressionManager.setValue(wanted, params.expression === 'fierce' ? 0.85 : 1.0);
+          const headMesh = findHeadMesh(targetRoot);
+          const snapshot = new Map<string, number>();
+          if (headMesh?.morphTargetInfluences && headMesh.morphTargetDictionary) {
+            for (const name of SLIDER_FACE_MORPHS) {
+              const idx = headMesh.morphTargetDictionary[name];
+              if (typeof idx === 'number' && idx < headMesh.morphTargetInfluences.length) {
+                snapshot.set(name, headMesh.morphTargetInfluences[idx]);
+              }
             }
-          } catch {}
+          }
+          const knownPresets = ['happy', 'angry', 'sad', 'relaxed', 'surprised', 'blink', 'neutral', 'aa', 'ee', 'ih', 'oh', 'ou'];
+          for (const p of knownPresets) {
+            try {
+              vrm.expressionManager.setValue(p, 0);
+            } catch {}
+          }
+          const blends = getExpressionBlends(params);
+          for (const [name, weight] of Object.entries(blends)) {
+            try {
+              vrm.expressionManager.setValue(name, Math.min(1, Math.max(0, weight)));
+            } catch {}
+          }
+          if (headMesh?.morphTargetInfluences && headMesh.morphTargetDictionary) {
+            for (const [name, value] of snapshot) {
+              const idx = headMesh.morphTargetDictionary[name];
+              if (typeof idx === 'number' && idx < headMesh.morphTargetInfluences.length) {
+                headMesh.morphTargetInfluences[idx] = value;
+              }
+            }
+          }
         }
       } catch (err) {
         console.warn('Apply params warning:', err);
       }
     },
-    [update3DAccessories]
+    [update3DAccessories, applyHeadFollowers]
   );
 
   useEffect(() => {
     avatarParamsRef.current = avatarParams;
     applyAvatarParametersToVrm(vrmRef.current, gltfSceneRef.current, avatarParams);
-  }, [avatarParams, applyAvatarParametersToVrm]);
+    // Reframe after morphs: height / leg-length changes move the model's
+    // bounding box, and the framing from load time goes stale. Rescale the
+    // camera distance and target by the height ratio so the model stays
+    // framed — the orbit angles and zoom level are preserved, not reset.
+    const targetRoot = vrmRef.current ? vrmRef.current.scene : gltfSceneRef.current;
+    if (targetRoot) {
+      try {
+        const box = new THREE.Box3().setFromObject(targetRoot);
+        const size = box.getSize(new THREE.Vector3());
+        if (size.y > 0) {
+          const prev = lastModelHeightRef.current;
+          lastModelHeightRef.current = size.y;
+          if (prev !== null && prev > 0 && Math.abs(size.y - prev) / prev > 0.02) {
+            const ratio = size.y / prev;
+            cameraTargetRef.current.y *= ratio;
+            cameraDistanceRef.current = Math.max(0.8, Math.min(14.0, cameraDistanceRef.current * ratio));
+            updateCameraPosition();
+          }
+        }
+      } catch {}
+    }
+  }, [avatarParams, applyAvatarParametersToVrm, updateCameraPosition]);
 
   // Inspect a freshly loaded model and publish its verified morph map.
   // Inspection MUST run before any params are applied: it captures the base
@@ -420,6 +517,9 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
   // the full resolution log goes to the console.
   const inspectLoadedModel = useCallback(
     (root: THREE.Object3D, vrm: VRM | null, name: string) => {
+      // A new model means new hair-follower bases and a new framing height.
+      hairBaseScalesRef.current.clear();
+      lastModelHeightRef.current = null;
       const map = inspectModel(root, vrm, name);
       morphMapRef.current = map;
       const summary = toMorphMapSummary(map);
@@ -887,6 +987,13 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
         mixerRef.current.update(dt);
       }
 
+      // Turntable: slow orbit around the model. The ref (not state) is
+      // read here so the loop never sees a stale closure.
+      if (turntableRef.current) {
+        cameraThetaRef.current += dt * 0.45;
+        updateCameraPosition();
+      }
+
       renderer.render(scene, camera);
       animationFrameIdRef.current = requestAnimationFrame(animate);
     };
@@ -987,18 +1094,77 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
     setLoadingState({ isLoading: false, progress: 0, error: null, fileName: 'No Model Loaded' });
   };
 
+  // The expressions bar used to write presets straight to the
+  // expressionManager — a second writer beside the avatar params, so the
+  // next slider drag (which re-applies params) wiped the bar's expression,
+  // and a bar tap never survived a param change. It now goes through the
+  // same params as everything else: tapping a preset sets its blend to
+  // full weight (tapping the active one again clears it); the apply pass
+  // in applyAvatarParametersToVrm is the only writer.
   const setVrmExpression = (presetName: string) => {
-    if (vrmRef.current?.expressionManager) {
-      const presets = ['happy', 'angry', 'sad', 'relaxed', 'surprised', 'blink', 'aa', 'ee', 'ih', 'oh', 'ou'];
-      presets.forEach((p) => {
-        vrmRef.current?.expressionManager?.setValue(p, 0);
-      });
-      if (presetName !== 'neutral') {
-        vrmRef.current.expressionManager.setValue(presetName, 1.0);
-      }
-      setActiveExpression(presetName);
-    }
+    if (!vrmRef.current?.expressionManager) return;
+    const current = getExpressionBlends(avatarParamsRef.current);
+    const isSoleActive = Object.keys(current).length === 1 && current[presetName] === 1;
+    const nextBlends: Record<string, number> =
+      presetName === 'neutral' || isSoleActive ? {} : { [presetName]: 1 };
+    const nextEditorId = EXPRESSION_EDITOR_ID[presetName];
+    const nextParams: AvatarParameters = {
+      ...avatarParamsRef.current,
+      expressionBlends: nextBlends,
+      // Keep the legacy single-choice field in sync when the preset has
+      // an editor id; presets without one (sad, relaxed, aa, …) leave it
+      // alone — the blend map is what the apply pass reads.
+      ...(nextEditorId ? { expression: nextEditorId } : {}),
+    };
+    setActiveExpression(Object.keys(nextBlends).length === 0 ? 'neutral' : presetName);
+    onAvatarParamsChange?.(nextParams);
   };
+
+  // Keep the bar's highlight in sync when expressions change from the
+  // editor (blend sliders / preset choice), not just from the bar itself.
+  useEffect(() => {
+    const blends = getExpressionBlends(avatarParams);
+    const entries = Object.entries(blends);
+    if (entries.length === 0) {
+      setActiveExpression('neutral');
+    } else {
+      entries.sort((a, b) => b[1] - a[1]);
+      setActiveExpression(entries[0][0]);
+    }
+  }, [avatarParams]);
+
+  // Camera presets: frame the model for a face close-up, a body shot, or
+  // the full character, from the live bounding box. The orbit is reset to
+  // a front view for each preset.
+  const frameCamera = useCallback((preset: 'face' | 'body' | 'full') => {
+    const targetRoot = vrmRef.current ? vrmRef.current.scene : gltfSceneRef.current;
+    if (!targetRoot) return;
+    try {
+      const box = new THREE.Box3().setFromObject(targetRoot);
+      const size = box.getSize(new THREE.Vector3());
+      if (size.y <= 0) return;
+      cameraThetaRef.current = 0.0;
+      cameraPhiRef.current = 0.08;
+      if (preset === 'face') {
+        cameraTargetRef.current.set(0, size.y * 0.88, 0);
+        cameraDistanceRef.current = Math.max(0.8, size.y * 0.55);
+      } else if (preset === 'body') {
+        cameraTargetRef.current.set(0, size.y * 0.55, 0);
+        cameraDistanceRef.current = Math.max(1.0, size.y * 1.0);
+      } else {
+        cameraTargetRef.current.set(0, size.y * 0.55, 0);
+        cameraDistanceRef.current = Math.max(2.2, size.y * 1.65);
+      }
+      updateCameraPosition();
+    } catch (err) {
+      console.warn('Frame camera warning:', err);
+    }
+  }, [updateCameraPosition]);
+
+  const toggleTurntable = useCallback(() => {
+    turntableRef.current = !turntableRef.current;
+    setTurntableOn(turntableRef.current);
+  }, []);
 
   // MULTI-TOUCH GESTURE ENGINE
   const handlePointerDown = (e: React.PointerEvent) => {
@@ -1236,6 +1402,38 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
               <Smile className="w-2.5 h-2.5 text-[#38bdf8]" />
               <span>Expressions</span>
             </button>
+          )}
+
+          {modelLoaded && (
+            <>
+              <span className="text-slate-600 select-none">|</span>
+              {([
+                { id: 'face', label: 'Face' },
+                { id: 'body', label: 'Body' },
+                { id: 'full', label: 'Full' },
+              ] as const).map((preset) => (
+                <button
+                  key={preset.id}
+                  onClick={() => frameCamera(preset.id)}
+                  className="px-2 py-0.5 rounded bg-[#060b14] text-slate-300 border border-[#1e293b] hover:text-white text-[10px] transition-colors"
+                  title={`Frame camera: ${preset.label} view`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+              <button
+                onClick={toggleTurntable}
+                className={`px-2 py-0.5 rounded border text-[10px] flex items-center gap-1 transition-colors ${
+                  turntableOn
+                    ? 'bg-[#091b30] text-cyan-200 border-[#38bdf8]/60'
+                    : 'bg-[#060b14] text-slate-300 border-[#1e293b] hover:text-white'
+                }`}
+                title="Turntable: slowly rotate the camera around the model"
+              >
+                <RotateCw className="w-2.5 h-2.5 text-[#38bdf8]" />
+                <span>Turntable</span>
+              </button>
+            </>
           )}
 
           {modelLoaded && morphMapSummary && (

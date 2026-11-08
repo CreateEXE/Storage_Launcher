@@ -21,7 +21,7 @@ import {
   ListChecks,
   AlertCircle
 } from 'lucide-react';
-import { AvatarParameters, AVATAR_PRESETS, DEFAULT_AVATAR_PARAMS } from '../types/avatar';
+import { AvatarParameters, AVATAR_PRESETS, DEFAULT_AVATAR_PARAMS, getExpressionBlends, EXPRESSION_VRM_NAME, EXPRESSION_EDITOR_ID, normalizeAvatarParams } from '../types/avatar';
 import { FileManagerService } from '../services/fileManager';
 import {
   EDITOR_CONTROLS,
@@ -63,9 +63,11 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
   const [savedPresets, setSavedPresets] = useState<Array<{ name: string; path: string }>>([]);
 
   // Defensive merge: presets saved before new sliders existed (armLength,
-  // legThickness, browRaise, mouthOpen) load without those keys.
+  // legThickness, browRaise, mouthOpen) load without those keys. Also
+  // derives expressionBlends from the legacy single-choice `expression`
+  // when an old preset has no blend map.
   const safeParams: AvatarParameters = useMemo(
-    () => ({ ...DEFAULT_AVATAR_PARAMS, ...params }),
+    () => normalizeAvatarParams(params),
     [params]
   );
 
@@ -79,12 +81,74 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
     setRedoStack([]);
   };
 
+  // Live (drag) updates: slider drags update the model on every tick but
+  // must NOT push a history entry per tick, or one drag fills the whole
+  // 30-deep stack and undo steps through a single drag. The pre-drag
+  // params are captured once as the baseline; commitDrag() pushes that
+  // single baseline when the drag ends, so one drag = one undo step.
+  const dragBaselineRef = React.useRef<AvatarParameters | null>(null);
+  const updateParamLive = <K extends keyof AvatarParameters>(key: K, value: AvatarParameters[K]) => {
+    if (!dragBaselineRef.current) dragBaselineRef.current = params;
+    onChange({
+      ...params,
+      [key]: value
+    });
+  };
+  const commitDrag = () => {
+    if (dragBaselineRef.current) {
+      pushHistoryState(dragBaselineRef.current);
+      dragBaselineRef.current = null;
+    }
+  };
+
   const updateParam = <K extends keyof AvatarParameters>(key: K, value: AvatarParameters[K]) => {
     pushHistoryState(params);
     onChange({
       ...params,
       [key]: value
     });
+  };
+
+  // The expression choice sets the whole blend map, not just the legacy
+  // single-choice field: choosing a preset means that preset at full
+  // weight (0.85 for 'fierce', matching the old single-preset weight) and
+  // nothing else; 'neutral' clears all blends.
+  const handleExpressionChoice = (choiceId: AvatarParameters['expression']) => {
+    pushHistoryState(params);
+    onChange({
+      ...params,
+      expression: choiceId,
+      expressionBlends:
+        choiceId === 'neutral'
+          ? {}
+          : { [EXPRESSION_VRM_NAME[choiceId]]: choiceId === 'fierce' ? 0.85 : 1 },
+    });
+  };
+
+  // Which editor expression the choice group should highlight: the preset
+  // with the highest active blend weight. A blend the bar set directly
+  // (e.g. 'sad') has no editor id, so nothing highlights — honest, not a
+  // wrong highlight.
+  const effectiveBlends = useMemo(() => getExpressionBlends(safeParams), [safeParams]);
+  const currentExpressionId: AvatarParameters['expression'] | undefined = useMemo(() => {
+    const entries = Object.entries(effectiveBlends);
+    if (entries.length === 0) return 'neutral';
+    entries.sort((a, b) => b[1] - a[1]);
+    return EXPRESSION_EDITOR_ID[entries[0][0]];
+  }, [effectiveBlends]);
+
+  // Reset one category (body / face / hair / outfit / colors) to defaults.
+  // Face also clears the expression blend map.
+  const resetCategory = (section: string) => {
+    pushHistoryState(params);
+    const next: AvatarParameters = { ...params };
+    for (const def of EDITOR_CONTROLS) {
+      if (def.section !== section) continue;
+      (next as unknown as Record<string, unknown>)[def.id] =
+        DEFAULT_AVATAR_PARAMS[def.id as keyof AvatarParameters];
+    }
+    if (section === 'face') next.expressionBlends = {};
+    onChange(next);
   };
 
   const handleUndo = () => {
@@ -155,6 +219,13 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
         (randomized as unknown as Record<string, unknown>)[def.id] = randomItem(def.choices).id;
       }
     }
+    // The randomized single-choice expression must match the blend map,
+    // or the old explicit blends would win and the new choice would do
+    // nothing.
+    randomized.expressionBlends =
+      randomized.expression === 'neutral'
+        ? {}
+        : { [EXPRESSION_VRM_NAME[randomized.expression]]: randomized.expression === 'fierce' ? 0.85 : 1 };
 
     onChange(randomized);
   };
@@ -214,7 +285,7 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
       const found = files.find((f) => f.name === fileName);
       const content = found?.content || fs.readFileContent(found?.path || '', false);
       const parsed = JSON.parse(content || '');
-      const loaded = { ...DEFAULT_AVATAR_PARAMS, ...(parsed.parameters || {}) } as AvatarParameters;
+      const loaded = normalizeAvatarParams(parsed.parameters || {});
       pushHistoryState(params);
       onChange(loaded);
       setSaveName(fileName.replace(PRESET_EXT, ''));
@@ -261,16 +332,55 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
   const renderSlider = (def: MorphControlDef) => {
     const st = statusOf(def.id);
     const value = (safeParams as unknown as Record<string, number>)[def.id] ?? def.min ?? 0;
+    const defaultValue = DEFAULT_AVATAR_PARAMS[def.id as keyof AvatarParameters] as number;
+    const isDefault = value === defaultValue;
     return (
       <div key={def.id} className="space-y-1">
-        <div className="flex justify-between text-[10px] text-slate-400">
+        <div className="flex justify-between items-center text-[10px] text-slate-400">
           <span>
             {def.label}
             {st.status === 'verified' && <span className="text-emerald-400 ml-1" title={st.target}>✓</span>}
           </span>
-          <span className="font-mono-code text-slate-200">
-            {def.id === 'eyeSpacing' ? `${value >= 0 ? '+' : ''}${value.toFixed(3)}` : value.toFixed(2)}
-            {def.id === 'browRaise' || def.id === 'mouthOpen' ? '' : 'x'}
+          <span className="flex items-center gap-1">
+            {/* Numeric input: same min/max/clamp as the slider, so a value
+                can be typed exactly instead of hunted with the thumb. */}
+            <input
+              type="number"
+              min={def.min}
+              max={def.max}
+              step={def.step}
+              value={value}
+              disabled={st.status !== 'verified'}
+              onChange={(e) => {
+                const v = parseFloat(e.target.value);
+                if (Number.isNaN(v)) return; // empty field while typing
+                updateParamLive(
+                  def.id as keyof AvatarParameters,
+                  Math.min(def.max ?? v, Math.max(def.min ?? v, v)) as never
+                );
+              }}
+              onBlur={commitDrag}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  commitDrag();
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
+              className="w-16 bg-[#060a12] border border-[#172a45] rounded px-1 py-0.5 text-[10px] font-mono-code text-slate-200 text-right outline-none focus:border-[#38bdf8] disabled:opacity-40 disabled:cursor-not-allowed"
+              title={`Type a value (${def.min} – ${def.max})`}
+            />
+            <span className="font-mono-code text-slate-500">
+              {def.id === 'browRaise' || def.id === 'mouthOpen' ? '' : 'x'}
+            </span>
+            {/* Per-slider reset: back to this control's default only. */}
+            <button
+              onClick={() => updateParam(def.id as keyof AvatarParameters, defaultValue as never)}
+              disabled={st.status !== 'verified' || isDefault}
+              className="p-0.5 rounded text-slate-500 hover:text-[#38bdf8] hover:bg-[#0f172a] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-slate-500 transition-colors"
+              title={`Reset ${def.label} to default (${defaultValue})`}
+            >
+              <RotateCcw className="w-2.5 h-2.5" />
+            </button>
           </span>
         </div>
         <input
@@ -280,7 +390,10 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
           step={def.step}
           value={value}
           disabled={st.status !== 'verified'}
-          onChange={(e) => updateParam(def.id as keyof AvatarParameters, parseFloat(e.target.value) as never)}
+          onChange={(e) => updateParamLive(def.id as keyof AvatarParameters, parseFloat(e.target.value) as never)}
+          onPointerUp={commitDrag}
+          onMouseUp={commitDrag}
+          onBlur={commitDrag}
           className="w-full h-1.5 bg-[#172a45] rounded-lg appearance-none cursor-pointer accent-[#38bdf8] disabled:opacity-40 disabled:cursor-not-allowed"
         />
         {st.status === 'verified' ? (
@@ -299,7 +412,13 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
 
   const renderChoiceGroup = (def: MorphControlDef) => {
     const st = statusOf(def.id);
-    const current = (safeParams as unknown as Record<string, string>)[def.id];
+    // The expression choice highlights the preset with the highest active
+    // blend weight (not the legacy field), and choosing one rewrites the
+    // whole blend map — see handleExpressionChoice.
+    const isExpression = def.id === 'expression';
+    const current = isExpression
+      ? (currentExpressionId ?? '')
+      : (safeParams as unknown as Record<string, string>)[def.id];
     return (
       <div key={def.id}>
         <div className="text-[11px] font-semibold text-slate-300 mb-1.5">
@@ -311,7 +430,11 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
             <button
               key={choice.id}
               disabled={st.status !== 'verified'}
-              onClick={() => updateParam(def.id as keyof AvatarParameters, choice.id as never)}
+              onClick={() =>
+                isExpression
+                  ? handleExpressionChoice(choice.id as AvatarParameters['expression'])
+                  : updateParam(def.id as keyof AvatarParameters, choice.id as never)
+              }
               className={`py-1.5 px-2 rounded text-[11px] font-medium border text-left flex items-center justify-between transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                 current === choice.id
                   ? 'bg-[#0e3a6a] text-white border-[#38bdf8] shadow-[0_0_8px_rgba(56,189,248,0.3)]'
@@ -532,6 +655,52 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
         {activeCategory === 'face' && (
           <div className="space-y-3">
             {renderChoiceGroup(defById('expression'))}
+            {/* Expression Blend — mix presets instead of one-at-a-time.
+                Each slider is that preset's weight (0–1); several can be
+                active at once, and the weights are applied in the same
+                pass as the face sliders below, so they never overwrite
+                each other. Face sliders always win on the morphs they
+                drive. */}
+            <div className="space-y-2 pt-2 border-t border-[#172a45]">
+              <div className="text-[11px] font-semibold text-slate-300">Expression Blend</div>
+              {(['smile', 'wink', 'fierce', 'surprised'] as const).map((id) => {
+                const vrmName = EXPRESSION_VRM_NAME[id];
+                const st = statusOf('expression');
+                const weight = effectiveBlends[vrmName] ?? 0;
+                return (
+                  <div key={id} className="space-y-1">
+                    <div className="flex justify-between items-center text-[10px] text-slate-400">
+                      <span>{defById('expression').choices?.find((c) => c.id === id)?.label ?? id}</span>
+                      <span className="font-mono-code text-slate-200">{weight.toFixed(2)}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      value={weight}
+                      disabled={st.status !== 'verified'}
+                      onChange={(e) =>
+                        updateParamLive('expressionBlends', {
+                          ...effectiveBlends,
+                          [vrmName]: parseFloat(e.target.value),
+                        })
+                      }
+                      onPointerUp={commitDrag}
+                      onMouseUp={commitDrag}
+                      onBlur={commitDrag}
+                      className="w-full h-1.5 bg-[#172a45] rounded-lg appearance-none cursor-pointer accent-[#38bdf8] disabled:opacity-40 disabled:cursor-not-allowed"
+                    />
+                  </div>
+                );
+              })}
+              {statusOf('expression').status !== 'verified' && (
+                <div className="text-[9px] text-amber-300/80 leading-tight flex items-start gap-1">
+                  <AlertCircle className="w-2.5 h-2.5 shrink-0 mt-px" />
+                  <span>Disabled on this model: {statusOf('expression').reason}</span>
+                </div>
+              )}
+            </div>
             <div className="space-y-2 pt-2 border-t border-[#172a45]">
               <div className="text-[11px] font-semibold text-slate-300">Feature Scaling</div>
               {slidersFor('face').map(renderSlider)}
@@ -639,7 +808,7 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
                   key={preset.id}
                   onClick={() => {
                     pushHistoryState(params);
-                    onChange({ ...DEFAULT_AVATAR_PARAMS, ...preset.params });
+                    onChange(normalizeAvatarParams({ ...DEFAULT_AVATAR_PARAMS, ...preset.params }));
                   }}
                   className="p-2 rounded bg-[#0b1220] hover:bg-[#121e35] border border-[#172a45] hover:border-[#38bdf8]/50 cursor-pointer transition-colors"
                 >
@@ -786,17 +955,30 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
 
       {/* Footer Controls */}
       <div className="h-10 bg-[#090e18] border-t border-[#172a45] px-2.5 flex items-center justify-between shrink-0">
-        <button
-          onClick={() => {
-            pushHistoryState(params);
-            onChange({ ...DEFAULT_AVATAR_PARAMS });
-          }}
-          className="px-2 py-1 rounded bg-[#0b1220] hover:bg-[#15233a] border border-[#172a45] text-slate-400 hover:text-white flex items-center gap-1 text-[10px] transition-colors"
-          title="Reset Parameters to Default"
-        >
-          <RotateCcw className="w-2.5 h-2.5" />
-          <span>Reset</span>
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => {
+              pushHistoryState(params);
+              onChange({ ...DEFAULT_AVATAR_PARAMS });
+            }}
+            className="px-2 py-1 rounded bg-[#0b1220] hover:bg-[#15233a] border border-[#172a45] text-slate-400 hover:text-white flex items-center gap-1 text-[10px] transition-colors"
+            title="Reset Parameters to Default"
+          >
+            <RotateCcw className="w-2.5 h-2.5" />
+            <span>Reset</span>
+          </button>
+          {/* Per-category reset: resets only the open tab's controls. */}
+          {['body', 'face', 'hair', 'outfit', 'colors'].includes(activeCategory) && (
+            <button
+              onClick={() => resetCategory(activeCategory)}
+              className="px-2 py-1 rounded bg-[#0b1220] hover:bg-[#15233a] border border-[#172a45] text-slate-400 hover:text-white flex items-center gap-1 text-[10px] transition-colors"
+              title={`Reset this tab (${activeCategory}) to defaults`}
+            >
+              <RotateCcw className="w-2.5 h-2.5" />
+              <span>Reset {activeCategory[0].toUpperCase() + activeCategory.slice(1)}</span>
+            </button>
+          )}
+        </div>
 
         <div className="flex items-center space-x-1.5">
           <button

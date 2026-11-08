@@ -403,7 +403,7 @@ function hasMeshDescendant(obj: THREE.Object3D): boolean {
 }
 
 /** The head mesh of a VRM: the skinned mesh carrying the eye morph targets. */
-function findHeadMesh(root: THREE.Object3D): THREE.Mesh | null {
+export function findHeadMesh(root: THREE.Object3D): THREE.Mesh | null {
   let byMorph: THREE.Mesh | null = null;
   let byName: THREE.Mesh | null = null;
   for (const mesh of collectMeshes(root)) {
@@ -416,6 +416,15 @@ function findHeadMesh(root: THREE.Object3D): THREE.Mesh | null {
   }
   return byMorph || byName;
 }
+
+/**
+ * The morph targets the face sliders drive on the head mesh. The viewer
+ * snapshots these influences around expression application: expression
+ * presets and face sliders share these morph indices, and the sliders
+ * always win on the morphs they drive — so a 'surprised' expression never
+ * silently overwrites a brow raise the user set with the slider.
+ */
+export const SLIDER_FACE_MORPHS = ['eye_black_big', 'eye_black_small', 'eye_brow_up', 'eye_brow_down', 'mouse_open'];
 
 function morphIndex(mesh: THREE.Mesh, morphName: string): number | null {
   const dict = (mesh as THREE.Mesh & { morphTargetDictionary?: Record<string, number> }).morphTargetDictionary;
@@ -561,7 +570,7 @@ export function inspectModel(root: THREE.Object3D, vrm: VRM | null, modelName: s
       verified(
         'headScale',
         `skinned mesh '${headMesh.name}' (face + eyes only; hair is a separate mesh)`,
-        'Scales the face/eye mesh only — the hair meshes are separate nodes and are untouched.',
+        'Scales the face/eye mesh only — the hair meshes are separate nodes, and the viewer scales them by the same factor so the hair follows the head.',
         (params) => {
           headMesh.scale.copy(base).multiplyScalar(clamp(params.headScale, 0.85, 1.2));
         },

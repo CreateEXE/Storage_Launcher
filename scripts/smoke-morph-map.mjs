@@ -19,7 +19,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inspectModel, applyVerifiedMorphs } from '../src/services/vrmMorphMap.ts';
-import { DEFAULT_AVATAR_PARAMS } from '../src/types/avatar.ts';
+import { DEFAULT_AVATAR_PARAMS, getExpressionBlends, normalizeAvatarParams } from '../src/types/avatar.ts';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let failures = 0;
@@ -214,3 +214,43 @@ console.log('\n== vessel-like fake VRM (bones + morphs + materials) ==');
 console.log(`\n${checks} checks, ${failures} failure(s)`);
 if (failures > 0) process.exit(1);
 console.log('OK — morph map probe + apply behave with no cross-talk.');
+
+// ---------------------------------------------------------------------------
+// 3. Expression blends: the single source of truth for expressions.
+//    Explicit expressionBlends win; a legacy single-choice `expression`
+//    (old presets) derives the blend; weights are clamped to 0–1.
+// ---------------------------------------------------------------------------
+console.log('\n== expression blends (single source of truth) ==');
+{
+  const smile = getExpressionBlends({ ...DEFAULT_AVATAR_PARAMS, expression: 'smile', expressionBlends: {} });
+  check(smile.happy === 1 && Object.keys(smile).length === 1, 'legacy smile derives { happy: 1 }', JSON.stringify(smile));
+  const fierce = getExpressionBlends({ ...DEFAULT_AVATAR_PARAMS, expression: 'fierce', expressionBlends: {} });
+  check(fierce.angry === 0.85, 'legacy fierce derives { angry: 0.85 }', JSON.stringify(fierce));
+  const neutral = getExpressionBlends({ ...DEFAULT_AVATAR_PARAMS, expression: 'neutral', expressionBlends: {} });
+  check(Object.keys(neutral).length === 0, 'legacy neutral derives no blends', JSON.stringify(neutral));
+  const explicit = getExpressionBlends({
+    ...DEFAULT_AVATAR_PARAMS,
+    expression: 'smile',
+    expressionBlends: { happy: 0.4, surprised: 0.7, blink: 2 },
+  });
+  check(
+    explicit.happy === 0.4 && explicit.surprised === 0.7 && explicit.blink === 1,
+    'explicit blends win over legacy choice, weights clamped to 0–1',
+    JSON.stringify(explicit),
+  );
+  const restored = normalizeAvatarParams({ expression: 'wink' });
+  check(
+    restored.expressionBlends.blink === 1 && restored.height === 1 && restored.hairColor === DEFAULT_AVATAR_PARAMS.hairColor,
+    'normalize fills missing keys and derives blends from legacy expression',
+    JSON.stringify(restored.expressionBlends),
+  );
+  const fresh = normalizeAvatarParams(null);
+  check(
+    fresh.expressionBlends && Object.keys(fresh.expressionBlends).length === 0 && fresh.expression === 'neutral',
+    'normalize(null) gives defaults with an empty blend map',
+  );
+}
+
+console.log(`\n${checks} checks, ${failures} failure(s)`);
+if (failures > 0) process.exit(1);
+console.log('OK — expression blends derive and clamp correctly.');
