@@ -199,7 +199,13 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
     } catch {}
   };
 
-  // Traverses model scene and applies skin, hair, eye, outfit, and neon colors
+  // Traverses model scene and applies skin, hair, and eye colors.
+  // Only colors with a real material on the loaded model survive here:
+  // coat/inner/boots/neon colors were removed — no material on the model
+  // matches them, so they did nothing. The two guards below stop the
+  // old substring bleed: skin color no longer tints the mouth, brows,
+  // lashes or eyeline, and eye color only hits the iris, not the white
+  // of the eye or the highlight.
   const applyMaterialColorsToScene = useCallback((root: THREE.Object3D, params: AvatarParameters) => {
     try {
       root.traverse((obj) => {
@@ -214,15 +220,29 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
             const matName = (mat.name || '').toLowerCase();
             const combined = `${meshName} ${matName}`;
 
+            const isFaceFeature =
+              combined.includes('mouth') ||
+              combined.includes('brow') ||
+              combined.includes('lash') ||
+              combined.includes('eyeline') ||
+              combined.includes('lip');
+            const isEyeWhiteOrHighlight =
+              combined.includes('white') ||
+              combined.includes('highlight') ||
+              combined.includes('lash') ||
+              combined.includes('line') ||
+              combined.includes('brow');
+
             if (
-              combined.includes('skin') ||
-              combined.includes('body') ||
-              combined.includes('face') ||
-              combined.includes('head') ||
-              combined.includes('arm') ||
-              combined.includes('leg') ||
-              combined.includes('hand') ||
-              combined.includes('torso')
+              !isFaceFeature &&
+              (combined.includes('skin') ||
+                combined.includes('body') ||
+                combined.includes('face') ||
+                combined.includes('head') ||
+                combined.includes('arm') ||
+                combined.includes('leg') ||
+                combined.includes('hand') ||
+                combined.includes('torso'))
             ) {
               setMaterialColorSafe(mat, params.skinColor);
             } else if (
@@ -236,48 +256,12 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
             ) {
               setMaterialColorSafe(mat, params.hairColor);
             } else if (
-              combined.includes('eye') ||
               combined.includes('iris') ||
               combined.includes('pupil') ||
-              combined.includes('cornea')
+              combined.includes('cornea') ||
+              (combined.includes('eye') && !isEyeWhiteOrHighlight)
             ) {
               setMaterialColorSafe(mat, params.eyeColor);
-            } else if (
-              combined.includes('coat') ||
-              combined.includes('jacket') ||
-              combined.includes('outfit') ||
-              combined.includes('cloth') ||
-              combined.includes('dress') ||
-              combined.includes('tunic') ||
-              combined.includes('uniform') ||
-              combined.includes('robe') ||
-              combined.includes('suit') ||
-              combined.includes('hoodie')
-            ) {
-              setMaterialColorSafe(mat, params.coatColor);
-            } else if (
-              combined.includes('inner') ||
-              combined.includes('shirt') ||
-              combined.includes('ribbon') ||
-              combined.includes('collar') ||
-              combined.includes('top')
-            ) {
-              setMaterialColorSafe(mat, params.innerColor);
-            } else if (
-              combined.includes('boot') ||
-              combined.includes('shoe') ||
-              combined.includes('footwear') ||
-              combined.includes('sock')
-            ) {
-              setMaterialColorSafe(mat, params.bootsColor);
-            } else if (
-              combined.includes('neon') ||
-              combined.includes('glow') ||
-              combined.includes('emission') ||
-              combined.includes('accent') ||
-              combined.includes('cyber')
-            ) {
-              setMaterialColorSafe(mat, params.accentNeonColor, params.accentNeonColor);
             }
           });
         }
@@ -287,30 +271,139 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
     }
   }, []);
 
-  // Eye size via the model's eye morph targets (eye_black_big /
-  // eye_black_small). No-op on models without them. Same mapping as the
-  // verified morph map: bigger eyes -> eye_black_big, smaller -> small.
-  // These are standalone morphs, not bound to VRM expressions, so the
-  // expression pass below cannot overwrite them.
-  const applyEyeScaleMorphs = useCallback((vrm: VRM | null, eyeScale: number) => {
-    if (!vrm) return;
-    try {
-      const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
-      const v = Math.min(1.4, Math.max(0.7, eyeScale));
-      vrm.scene.traverse((obj) => {
-        const mesh = obj as THREE.Mesh;
-        const dict = (mesh as any).morphTargetDictionary as Record<string, number> | undefined;
-        const influences = (mesh as any).morphTargetInfluences as number[] | undefined;
-        if (!dict || !influences) return;
-        if ('eye_black_big' in dict) influences[dict['eye_black_big']] = clamp01((v - 1) / 0.4);
-        if ('eye_black_small' in dict) influences[dict['eye_black_small']] = clamp01((1 - v) / 0.3);
+  // Overall Weight — mesh deformation, NOT bone scaling. The skeleton is
+  // untouched: no bone scales, no height change, no joint movement. The
+  // body mesh's vertices are pushed outward along their bind-pose normals,
+  // with a per-vertex region weight computed once from the skinning (which
+  // bones influence the vertex): belly/hips/thighs/upper arms/chest expand
+  // the most, head/face/neck/hands/feet/hair ~zero. Base positions and
+  // normals are stored and every write is absolute (base + displacement),
+  // so weight 1.0 restores the mesh byte-identically and dragging the
+  // slider back returns exactly to the original mesh. Body mesh only —
+  // the face and hair meshes are never touched.
+  interface WeightDeformEntry {
+    mesh: THREE.SkinnedMesh;
+    basePositions: Float32Array;
+    baseNormals: Float32Array;
+    regionWeights: Float32Array;
+  }
+  const weightDeformRef = useRef<WeightDeformEntry[] | null>(null);
+
+  const getWeightDeformEntries = useCallback((vrm: VRM): WeightDeformEntry[] => {
+    if (weightDeformRef.current) return weightDeformRef.current;
+    const entries: WeightDeformEntry[] = [];
+    const boneFactor = (boneName: string): number => {
+      const n = boneName.toLowerCase();
+      if (n.includes('neck') || n.includes('head') || n.includes('faceeye') || n.includes('hair')) return 0;
+      if (n.includes('bust')) return 1.0;
+      if (n.includes('hips') || n.includes('spine') || n.includes('chest')) return 1.0;
+      if (n.includes('upperleg')) return 0.7;
+      if (n.includes('lowerleg')) return 0.45;
+      if (n.includes('foot') || n.includes('toe')) return 0.05;
+      if (n.includes('shoulder')) return 0.3;
+      if (n.includes('upperarm')) return 0.6;
+      if (n.includes('lowerarm')) return 0.4;
+      if (n.includes('hand') || n.includes('finger') || n.includes('thumb') || n.includes('index') || n.includes('middle') || n.includes('ring') || n.includes('little')) return 0.05;
+      return 0;
+    };
+    vrm.scene.traverse((obj) => {
+      const mesh = obj as THREE.SkinnedMesh;
+      if (!mesh.isSkinnedMesh) return;
+      const name = (mesh.name || '').toLowerCase();
+      if (name.includes('face') || name.includes('hair')) return;
+      if (!name.includes('body')) return;
+      const geo = mesh.geometry as THREE.BufferGeometry;
+      const pos = geo.attributes.position as THREE.BufferAttribute | undefined;
+      const nor = geo.attributes.normal as THREE.BufferAttribute | undefined;
+      const joints = geo.attributes.skinIndex as THREE.BufferAttribute | undefined;
+      const weights = geo.attributes.skinWeight as THREE.BufferAttribute | undefined;
+      if (!pos || !nor || !joints || !weights || !mesh.skeleton) return;
+      const count = pos.count;
+      const regionWeights = new Float32Array(count);
+      for (let i = 0; i < count; i++) {
+        let w = 0;
+        for (let k = 0; k < 4; k++) {
+          const influence = weights.getComponent(i, k);
+          if (influence <= 0) continue;
+          const boneIndex = joints.getComponent(i, k);
+          const bone = mesh.skeleton.bones[boneIndex];
+          if (!bone) continue;
+          w += influence * boneFactor(bone.name || '');
+        }
+        regionWeights[i] = Math.min(1, Math.max(0, w));
+      }
+      entries.push({
+        mesh,
+        basePositions: Float32Array.from(pos.array as Float32Array),
+        baseNormals: Float32Array.from(nor.array as Float32Array),
+        regionWeights
       });
-    } catch (err) {
-      console.warn('Eye scale morph warning:', err);
-    }
+    });
+    weightDeformRef.current = entries;
+    return entries;
   }, []);
 
-  // Helper to re-apply skeletal morphs on raw bone nodes safely
+  const applyWeightDeform = useCallback((vrm: VRM | null, weight: number) => {
+    if (!vrm) return;
+    try {
+      const entries = getWeightDeformEntries(vrm);
+      const clamped = Math.min(1.4, Math.max(0.8, weight));
+      const amount = (clamped - 1) * 0.07; // metres of outward push at region weight 1.0
+      for (const entry of entries) {
+        const geo = entry.mesh.geometry as THREE.BufferGeometry;
+        const pos = geo.attributes.position as THREE.BufferAttribute;
+        const nor = geo.attributes.normal as THREE.BufferAttribute;
+        const p = pos.array as Float32Array;
+        const bp = entry.basePositions;
+        const bn = entry.baseNormals;
+        const rw = entry.regionWeights;
+        for (let i = 0; i < rw.length; i++) {
+          const d = amount * rw[i];
+          const ix = i * 3;
+          if (d === 0) {
+            p[ix] = bp[ix];
+            p[ix + 1] = bp[ix + 1];
+            p[ix + 2] = bp[ix + 2];
+          } else {
+            p[ix] = bp[ix] + bn[ix] * d;
+            p[ix + 1] = bp[ix + 1] + bn[ix + 1] * d;
+            p[ix + 2] = bp[ix + 2] + bn[ix + 2] * d;
+          }
+        }
+        pos.needsUpdate = true;
+        if (amount === 0) {
+          (nor.array as Float32Array).set(bn);
+        } else {
+          geo.computeVertexNormals();
+        }
+        nor.needsUpdate = true;
+        // Displacement changes the bounds; force a recompute on next use.
+        geo.boundingBox = null;
+        geo.boundingSphere = null;
+      }
+    } catch (err) {
+      console.warn('Weight deform warning:', err);
+    }
+  }, [getWeightDeformEntries]);
+
+  // Helper to re-apply skeletal morphs on raw bone nodes safely.
+  //
+  // Bone scales compound down the hierarchy: scaling a parent bone scales
+  // everything parented under it. The old code scaled chest for bust and
+  // spine for waist, so bust also grew the head and waist grew the whole
+  // upper body. Each region is now isolated by counter-scaling its
+  // children, so every region's WORLD scale is exactly its slider value:
+  //   hips  world (hip, 1, hip)        — local (hip, 1, hip)
+  //   spine world (waist, 1, waist)    — local (waist/hip, 1, waist/hip)
+  //   chest world (shoulder, 1, bust)  — local (shoulder/waist, 1, bust/waist)
+  //   head  world (head, head, head)   — local (head/shoulder, head, head/bust)
+  //   upperArm world (arm, 1, arm)     — local (arm/shoulder, 1, arm/bust)
+  //   lowerArm untouched (identity) so the forearm inherits exactly arm.
+  // Chain verified against Vessel: hips -> spine -> chest -> upperChest
+  // -> neck -> head; shoulders hang off upperChest; legs off hips.
+  // Residual honest limit: bust still scales the whole chest region's
+  // depth (the torso has no bust-only morph target on this model) — but
+  // it no longer touches the head, arms, or legs.
   const applySkeletalMorphs = useCallback((vrm: VRM, params: AvatarParameters) => {
     try {
       if (!vrm || !vrm.humanoid) return;
@@ -332,25 +425,32 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
         return null;
       };
 
-      const headNode = getBoneNode('head');
-      if (headNode && headNode.scale) headNode.scale.setScalar(params.headScale);
+      // Sliders never reach zero (ranges bottom out at 0.6), but guard
+      // the divisions anyway so a bad value can never invert a bone.
+      const div = (v: number) => Math.max(0.01, v);
+      const hip = params.hipWidth;
+      const waist = params.waistWidth;
+      const shoulder = params.shoulderWidth;
+      const bust = params.bustSize;
+
+      const hipsNode = getBoneNode('hips');
+      if (hipsNode && hipsNode.scale) hipsNode.scale.set(hip, 1, hip);
+
+      const spineNode = getBoneNode('spine');
+      if (spineNode && spineNode.scale) spineNode.scale.set(waist / div(hip), 1, waist / div(hip));
 
       const chestNode = getBoneNode('chest') || getBoneNode('upperChest');
       if (chestNode && chestNode.scale) {
-        chestNode.scale.x = params.shoulderWidth;
-        chestNode.scale.z = params.bustSize;
+        chestNode.scale.set(shoulder / div(waist), 1, bust / div(waist));
       }
 
-      const spineNode = getBoneNode('spine');
-      if (spineNode && spineNode.scale) {
-        spineNode.scale.x = params.waistWidth;
-        spineNode.scale.z = params.waistWidth;
-      }
-
-      const hipsNode = getBoneNode('hips');
-      if (hipsNode && hipsNode.scale) {
-        hipsNode.scale.x = params.hipWidth;
-        hipsNode.scale.z = params.hipWidth;
+      const headNode = getBoneNode('head');
+      if (headNode && headNode.scale) {
+        headNode.scale.set(
+          params.headScale / div(shoulder),
+          params.headScale,
+          params.headScale / div(bust)
+        );
       }
 
       const leftLeg = getBoneNode('leftUpperLeg');
@@ -358,14 +458,18 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
       if (leftLeg && leftLeg.scale) leftLeg.scale.y = params.legLength;
       if (rightLeg && rightLeg.scale) rightLeg.scale.y = params.legLength;
 
-      // Arm thickness: widen the arm bones (X/Z only — Y is the bone length).
-      // Previously nothing read params.armThickness, so the slider did nothing.
-      const armBones = ['leftUpperArm', 'rightUpperArm', 'leftLowerArm', 'rightLowerArm'];
-      armBones.forEach((name) => {
+      // Arm thickness: widen the upper arm bones only (X/Z — Y is the bone
+      // length). The lower arms stay identity so the forearms inherit
+      // exactly the upper arm's world scale instead of compounding it.
+      const upperArmBones = ['leftUpperArm', 'rightUpperArm'];
+      upperArmBones.forEach((name) => {
         const node = getBoneNode(name);
         if (node && node.scale) {
-          node.scale.x = params.armThickness;
-          node.scale.z = params.armThickness;
+          node.scale.set(
+            params.armThickness / div(shoulder),
+            1,
+            params.armThickness / div(bust)
+          );
         }
       });
     } catch (err) {
@@ -391,7 +495,6 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
 
         // Apply material recoloring (procedural 3D accessories were removed).
         applyMaterialColorsToScene(targetRoot, params);
-        applyEyeScaleMorphs(vrm, params.eyeScale);
 
         if (vrm && vrm.expressionManager && typeof vrm.expressionManager.setValue === 'function') {
           const presets = ['smile', 'wink', 'angry', 'sad', 'surprised', 'happy', 'neutral', 'blink'];
@@ -413,13 +516,44 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
         console.warn('Apply params warning:', err);
       }
     },
-    [applySkeletalMorphs, applyMaterialColorsToScene, applyEyeScaleMorphs]
+    [applySkeletalMorphs, applyMaterialColorsToScene]
   );
+
+  // Solid floor anchor: the avatar stands on the floor plane (y = 0) and
+  // grows from the floor up. Height scales the model about its origin and
+  // leg length pushes the feet down, so after every parameter change the
+  // model is re-seated: its bounding-box minimum is put exactly on y = 0
+  // and its centre on x/z = 0. Feet never sink through the floor, and the
+  // camera target tracks the model's mid-height so a taller avatar stays
+  // framed (distance and angles are the user's — untouched).
+  const anchorModelToFloor = useCallback(() => {
+    try {
+      const root = vrmRef.current ? vrmRef.current.scene : gltfSceneRef.current;
+      if (!root) return;
+      const box = new THREE.Box3().setFromObject(root);
+      if (!box || !isFinite(box.min.y) || !isFinite(box.max.y)) return;
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      root.position.x = -center.x;
+      root.position.z = -center.z;
+      root.position.y = -box.min.y;
+      if (size.y > 0) {
+        cameraTargetRef.current.y = size.y * 0.55;
+        updateCameraPosition();
+      }
+    } catch (err) {
+      console.warn('Floor anchor warning:', err);
+    }
+  }, [updateCameraPosition]);
 
   useEffect(() => {
     avatarParamsRef.current = avatarParams;
     applyAvatarParametersToVrm(vrmRef.current, gltfSceneRef.current, avatarParams);
-  }, [avatarParams, applyAvatarParametersToVrm]);
+    // Weight is mesh deformation, not a bone scale: apply it after the
+    // skeletal pass, then re-seat the feet on the floor.
+    applyWeightDeform(vrmRef.current, avatarParams.weight);
+    anchorModelToFloor();
+  }, [avatarParams, applyAvatarParametersToVrm, applyWeightDeform, anchorModelToFloor]);
 
   // Center & Fit Loaded Model Bounds
   const normalizeAndCenterModel = useCallback((modelGroup: THREE.Group, name: string) => {
@@ -438,19 +572,13 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
       scene.add(modelGroup);
       gltfSceneRef.current = modelGroup;
       applyAvatarParametersToVrm(null, modelGroup, avatarParamsRef.current);
+      // Weight deform is VRM-only (it needs the skinning); the floor
+      // anchor works for any model.
+      anchorModelToFloor();
 
       const box = new THREE.Box3().setFromObject(modelGroup);
-      const center = box.getCenter(new THREE.Vector3());
       const size = box.getSize(new THREE.Vector3());
 
-      modelGroup.position.x = -center.x;
-      modelGroup.position.z = -center.z;
-      if (box.min.y !== undefined && isFinite(box.min.y)) {
-        modelGroup.position.y = -box.min.y;
-      }
-
-      const focalY = size.y > 0 ? size.y * 0.55 : 1.1;
-      cameraTargetRef.current.set(0.0, focalY > 0 ? focalY : 1.1, 0.0);
       cameraDistanceRef.current = Math.max(2.2, size.y * 1.65);
       cameraThetaRef.current = 0.0;
       cameraPhiRef.current = 0.08;
@@ -479,10 +607,13 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
         fileName: name
       });
     }
-  }, [applyAvatarParametersToVrm, updateCameraPosition]);
+  }, [applyAvatarParametersToVrm, anchorModelToFloor, updateCameraPosition]);
 
   // Main 3D File Loader Function (Guarded with Error Protection)
   const loadModelFromUrl = useCallback((url: string, name: string) => {
+    // A new model means new meshes: drop the cached weight-deform base
+    // positions or the next model would be deformed from the old one's data.
+    weightDeformRef.current = null;
     // The previous model's blob URL has already been fetched by now;
     // revoke it before tracking the new one.
     if (modelBlobUrlRef.current && modelBlobUrlRef.current !== url) {
@@ -587,19 +718,12 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
               scene.add(loadedVrm.scene);
               vrmRef.current = loadedVrm;
               applyAvatarParametersToVrm(loadedVrm, null, avatarParamsRef.current);
+              applyWeightDeform(loadedVrm, avatarParamsRef.current.weight);
+              anchorModelToFloor();
 
               const box = new THREE.Box3().setFromObject(loadedVrm.scene);
-              const center = box.getCenter(new THREE.Vector3());
               const size = box.getSize(new THREE.Vector3());
 
-              loadedVrm.scene.position.x = -center.x;
-              loadedVrm.scene.position.z = -center.z;
-              if (box.min.y !== undefined && isFinite(box.min.y)) {
-                loadedVrm.scene.position.y = -box.min.y;
-              }
-
-              const focalY = size.y > 0 ? size.y * 0.55 : 1.1;
-              cameraTargetRef.current.set(0.0, focalY > 0 ? focalY : 1.1, 0.0);
               cameraDistanceRef.current = Math.max(2.2, size.y * 1.65);
               cameraThetaRef.current = 0.0;
               cameraPhiRef.current = 0.08;
@@ -690,7 +814,7 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
         fileName: name
       });
     }
-  }, [applyAvatarParametersToVrm, normalizeAndCenterModel, onAvatarParamsChange, updateCameraPosition]);
+  }, [applyAvatarParametersToVrm, applyWeightDeform, anchorModelToFloor, normalizeAndCenterModel, onAvatarParamsChange, updateCameraPosition]);
 
   // Three.js Canvas Mount
   useEffect(() => {
@@ -762,11 +886,13 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
     (gridHelper.material as THREE.LineBasicMaterial).opacity = 0.6;
     gridGroup.add(gridHelper);
 
+    // Solid floor the avatar stands on (y = 0). Kept light enough to
+    // actually read as a floor against the dark background.
     const groundGeo = new THREE.PlaneGeometry(24, 24);
     const groundMat = new THREE.MeshStandardMaterial({
-      color: 0x090e1a,
-      roughness: 0.4,
-      metalness: 0.6
+      color: 0x1a2436,
+      roughness: 0.5,
+      metalness: 0.3
     });
     const groundMesh = new THREE.Mesh(groundGeo, groundMat);
     groundMesh.rotation.x = -Math.PI / 2;
@@ -942,6 +1068,7 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
 
   const handleUnloadModel = () => {
     revokeModelBlobUrl();
+    weightDeformRef.current = null;
     const scene = sceneRef.current;
     if (scene) {
       if (vrmRef.current) {
