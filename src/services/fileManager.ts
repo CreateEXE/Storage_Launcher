@@ -403,16 +403,20 @@ export class FileManagerService {
   }
 
   public readFileContent(filePath: string, isBinary: boolean = false): string {
-    // For binary 3D models or images on native device, return the streaming path directly
-    if (isBinary) {
-      if (filePath.startsWith('content://') || filePath.startsWith('file://')) {
-        return filePath;
-      }
-      if (filePath.startsWith('/')) {
-        return `file://${filePath}`;
-      }
-    }
-
+    // Binary reads ALWAYS return the file's bytes as a data: URL — never a
+    // raw content:// or file:// path string. The WebView page
+    // (https://appassets.android.com) cannot fetch content:// or file://
+    // URLs, and every binary consumer (Viewer3D's data:/blob: gate,
+    // normalizeModelFileForViewer, bulk copy/move, downloadFile) treats a
+    // path string as unreadable data. Previously this method returned
+    // content:// / file:// paths unchanged for binary reads, which made the
+    // SAF/AndroidStorage base64 branches below dead code for real device
+    // files and made every 3D file tapped in the device-storage browser
+    // fail with "Could not read model data". No caller depends on the old
+    // passthrough: renameItem already reads base64 directly for native
+    // binary files, and the other callers all handle data: URLs.
+    // (Known limit: SafStorageBridge caps base64 reads at 30MB and silently
+    // truncates beyond it; Vessel.vrm at ~16MB is fine.)
     if (this.isSafActive() && window.SafStorage) {
       if (isBinary) {
         const base64 = window.SafStorage.readSafFileAsBase64(filePath);
@@ -595,10 +599,11 @@ export class FileManagerService {
       lowerName.endsWith('.pdf');
 
     // Binary-safe read: never use a file:// path string as file content.
-    // readFileContent(oldPath, true) returns a file:// path for native
-    // files (see its early return), which the old code wrote as the new
-    // file's content and then deleted the original — data loss.
-    // Read the actual bytes as base64 from the native/SAF bridge instead.
+    // readFileContent(oldPath, true) used to return a file:// path for
+    // native files, which the old code wrote as the new file's content and
+    // then deleted the original — data loss. It now returns the bytes as a
+    // data: URL instead, but rename still reads base64 directly from the
+    // native/SAF bridge so the copy can be verified byte-for-byte.
     let content = '';
     let originalBase64 = '';
     if (isBinary && (this.isSafActive() || this.isNativeStorageAvailable)) {
