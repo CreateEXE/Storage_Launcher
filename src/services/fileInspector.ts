@@ -18,7 +18,9 @@ export interface FileInspectionResult {
   isVRM: boolean;
   vrmVersion?: '0.0' | '1.0';
   magicBytesHex: string;
-  magicHeaderAscii: string;
+  // Optional: only set when actually read from file content (e.g. a
+  // shebang line). Absent means "not read", not "no header".
+  magicHeaderAscii?: string;
   isExtensionMismatched: boolean;
   suggestedExtension?: string;
   mismatchDescription?: string;
@@ -200,46 +202,56 @@ export const getBinaryIconSvg = (): string => `
 `;
 
 /**
- * Deep File Inspector Service:
- * Analyzes file headers, magic bytes, binary signatures, and embedded JSON metadata chunks.
- * Recognizes VRM avatars and 3D files even if renamed to .bin, .dat, .png, etc.!
+ * File Inspector Service (honest version):
+ * Classifies files by extension and by markers found in readable text
+ * content. It does NOT parse binary model data: no magic bytes are read
+ * from the file, no VRM/glTF metadata is extracted, and no APK manifest
+ * is read. Any field the inspector did not actually measure is left out
+ * or marked "not verified" — the old version returned hardcoded author,
+ * exporter, bone/poly counts and usage flags for every file, presented
+ * as if they had been extracted from the file itself. They had not.
  */
 export class FileTypeDetector {
   /**
-   * Inspects a file item and retrieves its true type, embedded metadata, and favicon/icon.
+   * Inspects a file item and classifies its type from what is actually
+   * known: its extension, its name, and markers in readable text
+   * content. Binary contents are never parsed here.
    */
   public static inspect(file: FileItem): FileInspectionResult {
     const fileName = file.name.trim();
     const dotIndex = fileName.lastIndexOf('.');
     const declaredExt = dotIndex >= 0 ? fileName.substring(dotIndex).toLowerCase() : '';
 
-    // Check for VRM indicators:
-    // 1. Explicit extension .vrm
-    // 2. Contains VRM/glTF binary signature or properties (e.g. materials, animations, Vessel, cyber_avatar, avatar)
-    // 3. File content with glTF magic bytes or "VRM" / "humanoid"
-    const isVrmByName = declaredExt === '.vrm' || /vessel|avatar|humanoid|character_vrm/i.test(fileName);
-    const hasVrmModelTraits = (file.materials && file.materials >= 4) || (file.animations && file.animations >= 2);
+    // Classification is by extension and by markers in readable text
+    // content only. A file named "avatar.png" is NOT a VRM, and a large
+    // file is NOT a VRM just because it is large — the old heuristics
+    // classified by name fragments (/vessel|avatar|humanoid/) and by
+    // sizeBytes > 500000, which mislabelled unrelated files.
+    const isVrmByExt = declaredExt === '.vrm';
     const contentHasVrm = file.content?.includes('"VRM"') || file.content?.includes('VRMC_vrm') || file.content?.includes('0x46546C67');
 
-    const isTrueVrm = declaredExt === '.vrm' || (isVrmByName && (hasVrmModelTraits || file.sizeBytes > 500000)) || contentHasVrm;
+    const isTrueVrm = isVrmByExt || contentHasVrm;
+    // VRM 1.0 is only claimed when the VRMC_vrm marker is actually seen
+    // in readable content; otherwise the version is unknown, not 0.0.
+    const vrmVersion: '0.0' | '1.0' | undefined = file.content?.includes('VRMC_vrm') ? '1.0' : undefined;
 
-    // Check for glTF / GLB 3D models
-    const isGltf = !isTrueVrm && (declaredExt === '.glb' || declaredExt === '.gltf' || /character\.glb/i.test(fileName));
+    // Check for glTF / GLB 3D models (by extension only)
+    const isGltf = !isTrueVrm && (declaredExt === '.glb' || declaredExt === '.gltf');
 
-    // Check for Android APK
-    const isApk = declaredExt === '.apk' || /app-release|\.apk/i.test(fileName);
+    // Check for Android APK (by extension only)
+    const isApk = declaredExt === '.apk';
 
-    // Check for C++ Source
+    // Check for C++ Source (by extension only)
     const isCpp = declaredExt === '.cpp' || declaredExt === '.h' || declaredExt === '.hpp' || declaredExt === '.c';
 
-    // Check for Shell Script
-    const isShell = declaredExt === '.sh' || file.content?.startsWith('#!') || /run\.sh/i.test(fileName);
+    // Check for Shell Script (by extension, or a real shebang in content)
+    const isShell = declaredExt === '.sh' || file.content?.startsWith('#!');
 
-    // Check for JSON
+    // Check for JSON (by extension, or content that parses as a JSON object)
     const isJson = declaredExt === '.json' || (file.content?.trim().startsWith('{') && file.content?.trim().endsWith('}'));
 
-    // Check for Markdown
-    const isMarkdown = declaredExt === '.md' || /readme/i.test(fileName);
+    // Check for Markdown (by extension only)
+    const isMarkdown = declaredExt === '.md';
 
     // 1. VRM AVATAR INSPECTION (Primary feature)
     if (isTrueVrm) {
@@ -249,47 +261,38 @@ export class FileTypeDetector {
 
       return {
         declaredExtension: declaredExt || '(none)',
-        detectedType: 'VRM Humanoid Avatar (VRM 0.0)',
+        // Classification by extension or by a VRM marker in readable
+        // content. No magic bytes are read from the file and no humanoid
+        // metadata is extracted here — bone count, morph targets and
+        // expressions are only known after the 3D Viewer actually loads
+        // the model. The old version hardcoded an author, exporter,
+        // 54 bones, 32 blend shapes and 42,850 polygons for EVERY file.
+        detectedType: 'VRM Humanoid Avatar' + (vrmVersion ? ` (VRM ${vrmVersion})` : ' (VRM version unknown)'),
         detectedMime: 'model/vrm+binary',
         is3DModel: true,
         isVRM: true,
-        vrmVersion: '0.0',
-        magicBytesHex: '0x46546C67 (glTF 2.0 GLB binary)',
-        magicHeaderAscii: 'glTF \x02\x00\x00\x00 JSON',
+        vrmVersion: vrmVersion,
+        magicBytesHex: 'Not read — magic bytes are not parsed from the file',
+        magicHeaderAscii: undefined,
         isExtensionMismatched: isMismatched,
         suggestedExtension: '.vrm',
         mismatchDescription: isMismatched
-          ? `File extension is '${declaredExt || 'none'}', but binary magic header 0x46546C67 (glTF) and embedded VRM 0.0 humanoid metadata confirm it is a 3D VRM Avatar!`
+          ? `File extension is '${declaredExt || 'none'}', but readable content contains VRM markers. Detection is by extension or content marker only — the binary was not parsed.`
           : undefined,
         embeddedMetadata: {
-          title: fileName.includes('Vessel') ? 'Vessel Chimera v1.0' : 'Cyber Humanoid Avatar',
-          author: 'Chimera Studio / Termux GUI Core Team',
-          version: '1.0.0 (UniVRM-0.104.0)',
-          exporter: 'UniVRM-0.104.0 with Blender 4.2',
-          contact: 'avatar@termux.internal',
-          reference: 'https://vrm.dev/en/',
-          allowedUserName: 'Everyone (Commercial & Personal)',
-          commercialUsage: 'Allowed',
-          violentUsage: 'Disallowed (Safe for work)',
-          sexualUsage: 'Disallowed',
-          meshesCount: file.faces && file.faces > 0 ? 4 : 4,
-          texturesCount: file.materials && file.materials > 0 ? file.materials : 12,
-          blendShapeCount: 32,
-          bonesCount: 54,
-          polyCount: 42850,
-          materialsCount: file.materials || 12,
+          title: fileName,
+          // Version is only set when the VRMC_vrm marker was actually
+          // seen in readable content; otherwise it is genuinely unknown.
+          version: vrmVersion,
           extraFields: {
-            'Spring Bone Chains': '14 active chains',
-            'LookAt Head Target': 'Active (Eye tracking enabled)',
-            'First Person Offset': '[0.0, 1.45, 0.05] m',
-            'MToon Shaders': 'Active (Anime NPR toon shading)'
+            'Verification': 'Metadata not extracted from the file — open in the 3D Viewer for verified model data'
           }
         },
         icon: {
           iconType: 'vrm_thumbnail',
           dataUrl: iconDataUrl,
           dimensions: '256x256 (Favicon 32x32)',
-          source: 'Embedded VRM meta.texture thumbnail chunk',
+          source: 'App-generated placeholder icon (not extracted from the file)',
           palette: ['#38bdf8', '#0284c7', '#0e1f38', '#ffedd5', '#f43f5e'],
           format: 'SVG',
           fileName: `${fileName.replace(/\.[^/.]+$/, '')}_icon.svg`
@@ -307,31 +310,24 @@ export class FileTypeDetector {
         detectedMime: 'model/gltf-binary',
         is3DModel: true,
         isVRM: false,
-        magicBytesHex: '0x46546C67 (glTF)',
-        magicHeaderAscii: 'glTF \x02\x00\x00\x00',
+        magicBytesHex: 'Not read — magic bytes are not parsed from the file',
+        magicHeaderAscii: undefined,
         isExtensionMismatched: isMismatched,
         suggestedExtension: '.glb',
         mismatchDescription: isMismatched
-          ? `File extension is '${declaredExt}', but magic bytes 0x46546C67 confirm it is a binary glTF 3D model!`
+          ? `File extension is '${declaredExt}'. Detection is by extension only — the binary was not parsed.`
           : undefined,
         embeddedMetadata: {
           title: fileName,
-          exporter: 'glTF-Transform v3 / Khronos Group',
-          meshesCount: 3,
-          texturesCount: file.materials || 8,
-          polyCount: file.faces || 18420,
-          materialsCount: file.materials || 8,
           extraFields: {
-            'Asset Version': '2.0',
-            'PBR Metallic-Roughness': 'Enabled',
-            'Bounding Box': file.dimensions || '0.8 x 1.7 x 0.4 m'
+            'Verification': 'Metadata not extracted from the file — open in the 3D Viewer for verified model data'
           }
         },
         icon: {
           iconType: 'vrm_thumbnail',
           dataUrl: createSvgDataUrl(iconSvg),
           dimensions: '128x128',
-          source: 'glTF Mesh Render / Asset Icon',
+          source: 'App-generated placeholder icon (not extracted from the file)',
           palette: ['#38bdf8', '#1d4ed8', '#070f1e', '#67e8f9'],
           format: 'SVG',
           fileName: `${fileName}_icon.svg`
@@ -348,27 +344,21 @@ export class FileTypeDetector {
         detectedMime: 'application/vnd.android.package-archive',
         is3DModel: false,
         isVRM: false,
-        magicBytesHex: '0x504B0304 (ZIP / PK Header)',
-        magicHeaderAscii: 'PK\x03\x04 AndroidManifest.xml',
+        magicBytesHex: 'Not read — magic bytes are not parsed from the file',
+        magicHeaderAscii: undefined,
         isExtensionMismatched: declaredExt !== '.apk',
         suggestedExtension: '.apk',
         embeddedMetadata: {
-          title: 'Termux GUI Native Service',
-          author: 'Termux Project',
-          version: '1.2.0 (Build 42)',
+          title: fileName,
           extraFields: {
-            'Package Name': 'com.termux.gui',
-            'Min SDK': 'Android 10 (API 29)',
-            'Target SDK': 'Android 15 (API 35)',
-            'ABI Arch': 'arm64-v8a',
-            'Permissions': 'READ_EXTERNAL_STORAGE, MANAGE_EXTERNAL_STORAGE'
+            'Verification': 'APK contents are not read — package name, SDK levels and permissions are not extracted'
           }
         },
         icon: {
           iconType: 'system_favicon',
           dataUrl: createSvgDataUrl(iconSvg),
           dimensions: '128x128',
-          source: 'res/mipmap-xxxhdpi/ic_launcher.png (Extracted from APK)',
+          source: 'App-generated placeholder icon (not extracted from the APK)',
           palette: ['#10b981', '#064e3b', '#34d399', '#ffffff'],
           format: 'SVG',
           fileName: `${fileName}_ic_launcher.svg`
@@ -385,15 +375,13 @@ export class FileTypeDetector {
         detectedMime: 'text/x-c++src',
         is3DModel: false,
         isVRM: false,
-        magicBytesHex: 'ASCII Text (UTF-8)',
-        magicHeaderAscii: '#include <jni.h>',
+        magicBytesHex: 'ASCII Text (UTF-8) — by extension',
+        magicHeaderAscii: file.content?.includes('#include') ? 'Contains #include directives' : undefined,
         isExtensionMismatched: false,
         embeddedMetadata: {
           title: fileName,
           extraFields: {
-            'Compiler': 'Clang / GCC (C++20)',
-            'JNI Bindings': 'Java_com_termux_gui_ChimeraRenderer',
-            'Graphics API': 'OpenGL ES 3.2 / Vulkan'
+            'Detected by': 'File extension'
           }
         },
         icon: {
@@ -417,14 +405,13 @@ export class FileTypeDetector {
         detectedMime: 'application/x-sh',
         is3DModel: false,
         isVRM: false,
-        magicBytesHex: '0x2321 (Shebang #!)',
-        magicHeaderAscii: '#!/bin/bash',
+        magicBytesHex: file.content?.startsWith('#!') ? '0x2321 (Shebang #! — read from content)' : 'Not read',
+        magicHeaderAscii: file.content?.startsWith('#!') ? file.content.split('\n')[0].slice(0, 40) : undefined,
         isExtensionMismatched: false,
         embeddedMetadata: {
           title: fileName,
           extraFields: {
-            'Interpreter': '/data/data/com.termux/files/usr/bin/bash',
-            'Executable Flag': '0755 (-rwxr-xr-x)'
+            'Detected by': 'File extension or shebang line in content'
           }
         },
         icon: {
@@ -448,8 +435,8 @@ export class FileTypeDetector {
       detectedMime: file.isFolder ? 'inode/directory' : 'application/octet-stream',
       is3DModel: false,
       isVRM: false,
-      magicBytesHex: file.isFolder ? 'POSIX Inode' : '0x00000000 (Data stream)',
-      magicHeaderAscii: file.isFolder ? 'Directory' : 'Raw Data Buffer',
+      magicBytesHex: file.isFolder ? 'POSIX Inode' : 'Not read — magic bytes are not parsed from the file',
+      magicHeaderAscii: file.isFolder ? 'Directory' : undefined,
       isExtensionMismatched: isMismatched,
       embeddedMetadata: {
         title: fileName,

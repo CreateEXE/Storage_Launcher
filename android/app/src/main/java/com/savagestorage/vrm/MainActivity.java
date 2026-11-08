@@ -36,7 +36,6 @@ import org.json.JSONObject;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
@@ -455,24 +454,51 @@ public class MainActivity extends AppCompatActivity {
                     Uri uri = request.getUrl();
                     if (uri != null) {
                         String scheme = uri.getScheme();
-                        if ("content".equalsIgnoreCase(scheme)) {
-                            try {
-                                InputStream is = getContentResolver().openInputStream(uri);
-                                String mimeType = getContentResolver().getType(uri);
-                                if (mimeType == null) mimeType = "application/octet-stream";
-                                return new WebResourceResponse(mimeType, "UTF-8", is);
-                            } catch (Exception e) {
-                                Log.e(TAG, "Error intercepting content URI: " + uri, e);
-                            }
-                        } else if ("file".equalsIgnoreCase(scheme)) {
+                        if ("file".equalsIgnoreCase(scheme)) {
                             // Previously this served any file:// path outside
                             // /android_asset/ to any loaded page. Do not do
                             // that: only the WebView's own android_asset
                             // handling may serve bundled files.
                             return super.shouldInterceptRequest(view, request);
                         }
+                        // No content:// branch: previously any content://
+                        // URI the loaded page asked for was opened and
+                        // served, with no check on which document it was —
+                        // including documents in the user-granted SAF tree.
+                        // Nothing legitimate needs it any more (since PR #7
+                        // the viewer loads models as base64 data: URLs, and
+                        // the system file picker hands chosen files to the
+                        // WebView itself), so content:// requests are left
+                        // to the default handling instead of being served.
                     }
                     return super.shouldInterceptRequest(view, request);
+                }
+
+                @Override
+                public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                    Uri uri = request != null ? request.getUrl() : null;
+                    if (uri == null) return false;
+                    String scheme = uri.getScheme();
+                    boolean isAppUrl = uri.toString().startsWith(APP_ORIGIN)
+                            || uri.toString().startsWith("file:///android_asset/");
+                    if (isAppUrl) return false; // load inside the WebView
+                    if ("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme)) {
+                        // Never load a foreign page inside the app's
+                        // WebView: it would run with the app's bridges
+                        // beside it (blocked by the origin check, but the
+                        // user would still see a foreign page inside the
+                        // app). Open it in the system browser instead.
+                        // Top-level navigation only — fetch() calls (e.g.
+                        // the Termux loopback daemon) do not come here.
+                        try {
+                            Intent browserIntent = new Intent(Intent.ACTION_VIEW, uri);
+                            startActivity(browserIntent);
+                        } catch (Exception e) {
+                            Log.e(TAG, "Could not open external URL: " + uri, e);
+                        }
+                        return true;
+                    }
+                    return false;
                 }
 
                 @Override

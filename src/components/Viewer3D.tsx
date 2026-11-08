@@ -1011,17 +1011,27 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
         }
         loadModelFromUrl(content, item.name);
         return;
-      } catch {}
+      } catch (err) {
+        // readFileContent throws on oversize / unreadable files: show the
+        // real reason instead of swallowing it (previously `catch {}`).
+        const itemName = (() => { try { return (JSON.parse(jsonStr) as FileItem).name; } catch { return 'model'; } })();
+        setLoadingState({ isLoading: false, progress: 0, error: err instanceof Error ? err.message : `Could not read model data for "${itemName}".`, fileName: itemName });
+        return;
+      }
     }
 
     if (textPath) {
       const fileName = textPath.split('/').pop() || 'model.vrm';
-      const content = fs.readFileContent(textPath, true);
-      if (!content || !(content.startsWith('data:') || content.startsWith('blob:'))) {
-        setLoadingState({ isLoading: false, progress: 0, error: `Could not read model data for "${fileName}".`, fileName });
-        return;
+      try {
+        const content = fs.readFileContent(textPath, true);
+        if (!content || !(content.startsWith('data:') || content.startsWith('blob:'))) {
+          setLoadingState({ isLoading: false, progress: 0, error: `Could not read model data for "${fileName}".`, fileName });
+          return;
+        }
+        loadModelFromUrl(content, fileName);
+      } catch (err) {
+        setLoadingState({ isLoading: false, progress: 0, error: err instanceof Error ? err.message : `Could not read model data for "${fileName}".`, fileName });
       }
-      loadModelFromUrl(content, fileName);
     }
   };
 
@@ -1623,11 +1633,18 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
                         if (item.isFolder) {
                           setNativePickerDir(item.path);
                         } else if (is3DModel) {
-                          const content = fs.readFileContent(item.path, true);
-                          if (!content || !(content.startsWith('data:') || content.startsWith('blob:'))) {
-                            setLoadingState({ isLoading: false, progress: 0, error: `Could not read model data for "${item.name}".`, fileName: item.name });
-                          } else {
-                            loadModelFromUrl(content, item.name);
+                          try {
+                            const content = fs.readFileContent(item.path, true);
+                            if (!content || !(content.startsWith('data:') || content.startsWith('blob:'))) {
+                              setLoadingState({ isLoading: false, progress: 0, error: `Could not read model data for "${item.name}".`, fileName: item.name });
+                            } else {
+                              loadModelFromUrl(content, item.name);
+                            }
+                          } catch (err) {
+                            // readFileContent throws on oversize /
+                            // unreadable files: show the real reason in
+                            // the viewer instead of failing silently.
+                            setLoadingState({ isLoading: false, progress: 0, error: err instanceof Error ? err.message : `Could not read model data for "${item.name}".`, fileName: item.name });
                           }
                           setShowNativeStoragePicker(false);
                         }

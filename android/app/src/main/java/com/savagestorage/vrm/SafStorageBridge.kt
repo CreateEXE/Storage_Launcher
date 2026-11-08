@@ -116,9 +116,13 @@ class SafStorageBridge(
 
                     Log.i(TAG, "SAF Persisted Tree URI granted: $treeUri")
 
-                    // Notify web frontend
+                    // Notify web frontend. Quote the URI as a JS string
+                    // literal: interpolating it raw would let a URI
+                    // containing a quote break out of the string and run
+                    // arbitrary JS in the app page.
+                    val quotedUri = JSONObject.quote(treeUri.toString())
                     webView.post {
-                        webView.evaluateJavascript("window.onSafPermissionGranted && window.onSafPermissionGranted('${treeUri}');", null)
+                        webView.evaluateJavascript("window.onSafPermissionGranted && window.onSafPermissionGranted($quotedUri);", null)
                     }
                     return true
                 } catch (e: Exception) {
@@ -159,6 +163,10 @@ class SafStorageBridge(
                 val segments = cleanPath.split('/')
                 for (seg in segments) {
                     if (seg.isBlank()) continue
+                    // Never resolve ".." out of the user-granted tree: a
+                    // crafted relative path must not escape the persisted
+                    // SAF root into other documents.
+                    if (seg == "..") return null
                     val found = current.findFile(seg) ?: return null
                     current = found
                 }
@@ -287,11 +295,27 @@ class SafStorageBridge(
         if (!checkTrusted()) return ""
         return try {
             val uri = Uri.parse(fileUriStr)
+            // 10 MB cap, matching AndroidStorage.readFileAsString: readBytes()
+            // on an unbounded stream can OOM the app on a large file. Fail
+            // loudly (empty result + error log) instead of trying anyway.
             val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
             if (inputStream != null) {
-                val bytes = inputStream.readBytes()
-                inputStream.close()
-                String(bytes, Charsets.UTF_8)
+                inputStream.use { stream ->
+                    val maxLimit = 10 * 1024 * 1024
+                    val buffer = ByteArrayOutputStream()
+                    val data = ByteArray(16384)
+                    var nRead: Int
+                    var total = 0
+                    while (stream.read(data, 0, data.size).also { nRead = it } != -1) {
+                        total += nRead
+                        if (total > maxLimit) {
+                            Log.e(TAG, "File too large to read as text (>10MB): $fileUriStr")
+                            return ""
+                        }
+                        buffer.write(data, 0, nRead)
+                    }
+                    String(buffer.toByteArray(), Charsets.UTF_8)
+                }
             } else ""
         } catch (e: Exception) {
             Log.e(TAG, "Error reading SAF file as string: $fileUriStr", e)
@@ -306,21 +330,32 @@ class SafStorageBridge(
             val uri = Uri.parse(fileUriStr)
             val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
             if (inputStream != null) {
-                val buffer = ByteArrayOutputStream()
-                val data = ByteArray(16384)
-                var nRead: Int
-                var total = 0
-                val maxLimit = 30 * 1024 * 1024 // 30MB max for Base64 to prevent OOM
-                while (inputStream.read(data, 0, data.size).also { nRead = it } != -1) {
-                    buffer.write(data, 0, nRead)
-                    total += nRead
-                    if (total > maxLimit) {
-                        Log.w(TAG, "File exceeded Base64 limit, stream directly via Content URI instead")
-                        break
+                inputStream.use { stream ->
+                    val buffer = ByteArrayOutputStream()
+                    val data = ByteArray(16384)
+                    var nRead: Int
+                    var total = 0
+                    val maxLimit = 30 * 1024 * 1024 // 30MB max for Base64 to prevent OOM
+                    while (stream.read(data, 0, data.size).also { nRead = it } != -1) {
+                        buffer.write(data, 0, nRead)
+                        total += nRead
+                        if (total > maxLimit) {
+                            // Fail loudly: previously this broke out of the
+                            // loop and returned the first 30MB encoded as
+                            // if it were the whole file, so the caller
+                            // treated a truncated file as complete data
+                            // (a truncated .vrm/.glb "loads" and then
+                            // fails to parse, or worse, parses wrong).
+                            // Returning "" makes every caller report a
+                            // read failure instead; the JS side pre-checks
+                            // the listed file size and shows the exact
+                            // "file too large" reason.
+                            Log.e(TAG, "File too large for Base64 read (>30MB), refusing partial data: $fileUriStr")
+                            return ""
+                        }
                     }
+                    Base64.encodeToString(buffer.toByteArray(), Base64.NO_WRAP)
                 }
-                inputStream.close()
-                Base64.encodeToString(buffer.toByteArray(), Base64.NO_WRAP)
             } else ""
         } catch (e: Exception) {
             Log.e(TAG, "Error reading SAF file as base64: $fileUriStr", e)
