@@ -44,7 +44,7 @@ export const TopBar: React.FC<TopBarProps> = ({
 
   return (
     <header className="h-9 bg-[#030712]/90 backdrop-blur-xl border-b border-[#1e293b] flex items-center justify-between px-3 text-xs select-none z-30 shrink-0 shadow-[0_4px_20px_rgba(0,0,0,0.8)]">
-      {/* Left: App Branding "Savage Storage" by Oni Song */}
+      {/* Left: App Branding "Oni's Storage Launcher" by Oni Song */}
       <div className="flex items-center space-x-3">
         <div className="flex items-center space-x-2 pr-3 border-r border-[#1e293b]">
           <div
@@ -55,7 +55,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           </div>
           <div className="flex flex-col leading-none">
             <span className="font-extrabold text-slate-100 tracking-tight text-[11px] sm:text-[12px] bg-gradient-to-r from-white via-slate-100 to-cyan-300 bg-clip-text text-transparent">
-              Savage Storage
+              Oni's Storage Launcher
             </span>
             <span className="text-[8px] text-cyan-400 font-mono-code tracking-wider">
               by Oni Song

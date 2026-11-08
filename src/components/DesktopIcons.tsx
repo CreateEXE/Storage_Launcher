@@ -37,7 +37,7 @@ export const DesktopIcons: React.FC<DesktopIconsProps> = ({
   const items = [
     {
       id: 'storage',
-      label: 'Savage Storage',
+      label: 'Oni\'s Storage Launcher',
       desc: 'Device files & scoped manager',
       icon: <Folder className="w-6 h-6 text-amber-400 fill-amber-400/80" />,
       onClick: onOpenStorage
