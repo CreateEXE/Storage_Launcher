@@ -120,7 +120,6 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
       eyeScale: randomRange(0.8, 1.3),
       eyeSpacing: randomRange(-0.02, 0.02),
       chinWidth: randomRange(0.85, 1.15),
-      earSize: randomRange(0.7, 1.4),
 
       skinColor: randomItem(skinPresets),
       hairColor: randomItem(hairPresets),
@@ -132,7 +131,6 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
       bootsColor: randomItem(['#0f172a', '#1e293b', '#2e1065', '#450a0a']),
 
       hairstyle: randomItem(['twintails', 'bobcut', 'longwaves', 'spiky', 'ponytail', 'short']),
-      accessory: randomItem(['cat_ears', 'kitsune', 'elf_ears', 'cyber_horns', 'headphones', 'none']),
       outfit: randomItem(['cyber_jacket', 'mmo_tunic', 'school_uniform', 'combat_suit', 'hoodie']),
       expression: randomItem(['neutral', 'smile', 'wink', 'fierce', 'surprised'])
     };
@@ -411,9 +409,11 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
               <div className="text-[11px] font-semibold text-slate-300">Feature Scaling</div>
               {[
                 { label: 'Anime Eye Scale', key: 'eyeScale', min: 0.7, max: 1.4, step: 0.01 },
-                { label: 'Eye Spacing', key: 'eyeSpacing', min: -0.03, max: 0.03, step: 0.002 },
-                { label: 'Chin & Jaw Width', key: 'chinWidth', min: 0.8, max: 1.2, step: 0.01 },
-                { label: 'Ear / Accessory Size', key: 'earSize', min: 0.6, max: 1.5, step: 0.02 },
+                // No verified target on this model: Vessel has no eye-spacing
+                // control and no chin/jaw bone or morph, so these stay
+                // disabled rather than being faked onto the wrong bone.
+                { label: 'Eye Spacing', key: 'eyeSpacing', min: -0.03, max: 0.03, step: 0.002, disabled: true, reason: 'No target on this model' },
+                { label: 'Chin & Jaw Width', key: 'chinWidth', min: 0.8, max: 1.2, step: 0.01, disabled: true, reason: 'No target on this model' },
               ].map((slider) => (
                 <div key={slider.key} className="space-y-1">
                   <div className="flex justify-between text-[10px] text-slate-400">
@@ -428,9 +428,15 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
                     max={slider.max}
                     step={slider.step}
                     value={(params as any)[slider.key]}
+                    disabled={(slider as any).disabled === true}
                     onChange={(e) => updateParam(slider.key as any, parseFloat(e.target.value))}
-                    className="w-full h-1.5 bg-[#172a45] rounded-lg appearance-none cursor-pointer accent-[#38bdf8]"
+                    className="w-full h-1.5 bg-[#172a45] rounded-lg appearance-none cursor-pointer accent-[#38bdf8] disabled:opacity-40 disabled:cursor-not-allowed"
                   />
+                  {(slider as any).disabled === true && (
+                    <div className="text-[9px] text-amber-300/80 leading-tight">
+                      Disabled on this model: {(slider as any).reason}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -588,33 +594,6 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
                   >
                     <span className="truncate">{outfit.label}</span>
                     {params.outfit === outfit.id && <Check className="w-3 h-3 text-[#38bdf8] shrink-0" />}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Accessories / Ears */}
-            <div className="pt-2 border-t border-[#172a45]">
-              <div className="text-[11px] font-semibold text-slate-300 mb-1.5">Headwear & Ears</div>
-              <div className="grid grid-cols-3 gap-1.5">
-                {[
-                  { id: 'cat_ears', label: 'Cat Ears' },
-                  { id: 'kitsune', label: 'Fox Ears' },
-                  { id: 'elf_ears', label: 'Elf Ears' },
-                  { id: 'cyber_horns', label: 'Cyber Horns' },
-                  { id: 'headphones', label: 'Headphones' },
-                  { id: 'none', label: 'None' },
-                ].map((acc) => (
-                  <button
-                    key={acc.id}
-                    onClick={() => updateParam('accessory', acc.id as any)}
-                    className={`py-1 px-1.5 rounded text-[10px] font-medium border text-center transition-colors ${
-                      params.accessory === acc.id
-                        ? 'bg-[#0e3a6a] text-white border-[#38bdf8]'
-                        : 'bg-[#0b1220] text-slate-400 border-[#172a45] hover:text-white'
-                    }`}
-                  >
-                    {acc.label}
                   </button>
                 ))}
               </div>

@@ -13,7 +13,6 @@ export interface AvatarParameters {
   eyeScale: number;        // 0.7 to 1.4
   eyeSpacing: number;      // -0.03 to 0.03
   chinWidth: number;       // 0.8 to 1.2
-  earSize: number;         // 0.6 to 1.5
 
   // Colors
   skinColor: string;
@@ -27,7 +26,6 @@ export interface AvatarParameters {
 
   // Selections
   hairstyle: 'twintails' | 'bobcut' | 'longwaves' | 'spiky' | 'ponytail' | 'short';
-  accessory: 'cat_ears' | 'kitsune' | 'elf_ears' | 'cyber_horns' | 'headphones' | 'none';
   outfit: 'cyber_jacket' | 'mmo_tunic' | 'school_uniform' | 'combat_suit' | 'hoodie';
   expression: 'neutral' | 'smile' | 'wink' | 'fierce' | 'surprised';
 }
@@ -45,7 +43,6 @@ export const DEFAULT_AVATAR_PARAMS: AvatarParameters = {
   eyeScale: 1.0,
   eyeSpacing: 0.0,
   chinWidth: 1.0,
-  earSize: 1.0,
 
   skinColor: '#ffe0bd',
   hairColor: '#6bb5f8',
@@ -57,7 +54,6 @@ export const DEFAULT_AVATAR_PARAMS: AvatarParameters = {
   bootsColor: '#0f172a',
 
   hairstyle: 'twintails',
-  accessory: 'cat_ears',
   outfit: 'cyber_jacket',
   expression: 'neutral'
 };
@@ -88,7 +84,6 @@ export const AVATAR_PRESETS: AvatarPreset[] = [
       height: 0.95,
       headScale: 1.05,
       bustSize: 0.9,
-      earSize: 1.3,
       skinColor: '#fff1e6',
       hairColor: '#c084fc',
       hairHighlightColor: '#f472b6',
@@ -98,7 +93,6 @@ export const AVATAR_PRESETS: AvatarPreset[] = [
       accentNeonColor: '#e879f9',
       bootsColor: '#2e1065',
       hairstyle: 'longwaves',
-      accessory: 'elf_ears',
       outfit: 'mmo_tunic',
       expression: 'smile'
     }
@@ -122,7 +116,6 @@ export const AVATAR_PRESETS: AvatarPreset[] = [
       accentNeonColor: '#fb7185',
       bootsColor: '#312e81',
       hairstyle: 'twintails',
-      accessory: 'headphones',
       outfit: 'school_uniform',
       expression: 'wink'
     }
@@ -149,7 +142,6 @@ export const AVATAR_PRESETS: AvatarPreset[] = [
       accentNeonColor: '#22c55e',
       bootsColor: '#020617',
       hairstyle: 'spiky',
-      accessory: 'cyber_horns',
       outfit: 'combat_suit',
       expression: 'fierce'
     }
@@ -172,7 +164,6 @@ export const AVATAR_PRESETS: AvatarPreset[] = [
       eyeScale: 0.88,
       eyeSpacing: -0.005,
       chinWidth: 0.92,
-      earSize: 1.0,
       skinColor: '#fceade',
       hairColor: '#111827',
       hairHighlightColor: '#374151',
@@ -182,7 +173,6 @@ export const AVATAR_PRESETS: AvatarPreset[] = [
       accentNeonColor: '#059669',
       bootsColor: '#030712',
       hairstyle: 'ponytail',
-      accessory: 'none',
       outfit: 'combat_suit',
       expression: 'fierce'
     }
