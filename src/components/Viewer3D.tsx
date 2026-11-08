@@ -287,133 +287,26 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
     }
   }, []);
 
-  // Procedurally attaches 3D accessories (ears, horns, headphones) to the model head bone
-  const update3DAccessories = useCallback((vrm: VRM | null, rootScene: THREE.Group | null, params: AvatarParameters) => {
+  // Eye size via the model's eye morph targets (eye_black_big /
+  // eye_black_small). No-op on models without them. Same mapping as the
+  // verified morph map: bigger eyes -> eye_black_big, smaller -> small.
+  // These are standalone morphs, not bound to VRM expressions, so the
+  // expression pass below cannot overwrite them.
+  const applyEyeScaleMorphs = useCallback((vrm: VRM | null, eyeScale: number) => {
+    if (!vrm) return;
     try {
-      const targetRoot = vrm ? vrm.scene : rootScene;
-      if (!targetRoot) return;
-
-      // Find existing accessory group or head bone
-      let headBone: THREE.Object3D | null = null;
-      if (vrm && vrm.humanoid) {
-        try {
-          if (typeof vrm.humanoid.getRawBoneNode === 'function') {
-            headBone = vrm.humanoid.getRawBoneNode('head');
-          }
-          if (!headBone && typeof vrm.humanoid.getNormalizedBoneNode === 'function') {
-            headBone = vrm.humanoid.getNormalizedBoneNode('head');
-          }
-        } catch {}
-      }
-
-      if (!headBone) {
-        targetRoot.traverse((obj) => {
-          if (!headBone && (obj.name.toLowerCase().includes('head') || obj.name.toLowerCase().includes('neck'))) {
-            headBone = obj;
-          }
-        });
-      }
-
-      const attachParent = headBone || targetRoot;
-
-      // Remove previous procedural accessory group
-      const existingAcc = attachParent.getObjectByName('PROCEDURAL_ACCESSORY_GROUP');
-      if (existingAcc) {
-        attachParent.remove(existingAcc);
-      }
-
-      if (params.accessory === 'none' || !params.accessory) return;
-
-      const accGroup = new THREE.Group();
-      accGroup.name = 'PROCEDURAL_ACCESSORY_GROUP';
-
-      const scale = params.earSize || 1.0;
-      const neonMat = new THREE.MeshStandardMaterial({
-        color: new THREE.Color(params.accentNeonColor),
-        emissive: new THREE.Color(params.accentNeonColor),
-        emissiveIntensity: 0.8,
-        roughness: 0.2,
-        metalness: 0.8
+      const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+      const v = Math.min(1.4, Math.max(0.7, eyeScale));
+      vrm.scene.traverse((obj) => {
+        const mesh = obj as THREE.Mesh;
+        const dict = (mesh as any).morphTargetDictionary as Record<string, number> | undefined;
+        const influences = (mesh as any).morphTargetInfluences as number[] | undefined;
+        if (!dict || !influences) return;
+        if ('eye_black_big' in dict) influences[dict['eye_black_big']] = clamp01((v - 1) / 0.4);
+        if ('eye_black_small' in dict) influences[dict['eye_black_small']] = clamp01((1 - v) / 0.3);
       });
-
-      const hairMat = new THREE.MeshStandardMaterial({
-        color: new THREE.Color(params.hairColor),
-        roughness: 0.5
-      });
-
-      if (params.accessory === 'cat_ears') {
-        const earGeo = new THREE.ConeGeometry(0.06 * scale, 0.16 * scale, 4);
-        const leftEar = new THREE.Mesh(earGeo, hairMat);
-        leftEar.position.set(0.09 * scale, 0.22 * scale, 0.02);
-        leftEar.rotation.z = -0.2;
-
-        const rightEar = new THREE.Mesh(earGeo, hairMat);
-        rightEar.position.set(-0.09 * scale, 0.22 * scale, 0.02);
-        rightEar.rotation.z = 0.2;
-
-        accGroup.add(leftEar);
-        accGroup.add(rightEar);
-      } else if (params.accessory === 'kitsune') {
-        const earGeo = new THREE.ConeGeometry(0.08 * scale, 0.22 * scale, 5);
-        const leftEar = new THREE.Mesh(earGeo, hairMat);
-        leftEar.position.set(0.12 * scale, 0.25 * scale, 0.01);
-        leftEar.rotation.z = -0.35;
-
-        const rightEar = new THREE.Mesh(earGeo, hairMat);
-        rightEar.position.set(-0.12 * scale, 0.25 * scale, 0.01);
-        rightEar.rotation.z = 0.35;
-
-        accGroup.add(leftEar);
-        accGroup.add(rightEar);
-      } else if (params.accessory === 'elf_ears') {
-        const earGeo = new THREE.ConeGeometry(0.04 * scale, 0.18 * scale, 4);
-        const leftEar = new THREE.Mesh(earGeo, neonMat);
-        leftEar.position.set(0.13 * scale, 0.05, -0.02);
-        leftEar.rotation.z = -1.2;
-
-        const rightEar = new THREE.Mesh(earGeo, neonMat);
-        rightEar.position.set(-0.13 * scale, 0.05, -0.02);
-        rightEar.rotation.z = 1.2;
-
-        accGroup.add(leftEar);
-        accGroup.add(rightEar);
-      } else if (params.accessory === 'cyber_horns') {
-        const hornGeo = new THREE.ConeGeometry(0.035 * scale, 0.24 * scale, 6);
-        const leftHorn = new THREE.Mesh(hornGeo, neonMat);
-        leftHorn.position.set(0.08 * scale, 0.22 * scale, 0.06);
-        leftHorn.rotation.x = -0.3;
-        leftHorn.rotation.z = -0.2;
-
-        const rightHorn = new THREE.Mesh(hornGeo, neonMat);
-        rightHorn.position.set(-0.08 * scale, 0.22 * scale, 0.06);
-        rightHorn.rotation.x = -0.3;
-        rightHorn.rotation.z = 0.2;
-
-        accGroup.add(leftHorn);
-        accGroup.add(rightHorn);
-      } else if (params.accessory === 'headphones') {
-        const bandGeo = new THREE.TorusGeometry(0.15 * scale, 0.015, 8, 24, Math.PI);
-        const band = new THREE.Mesh(bandGeo, neonMat);
-        band.position.set(0, 0.18 * scale, 0);
-        band.rotation.x = Math.PI / 2;
-
-        const cupGeo = new THREE.CylinderGeometry(0.05 * scale, 0.05 * scale, 0.03, 16);
-        const leftCup = new THREE.Mesh(cupGeo, neonMat);
-        leftCup.position.set(0.14 * scale, 0.04, 0);
-        leftCup.rotation.z = Math.PI / 2;
-
-        const rightCup = new THREE.Mesh(cupGeo, neonMat);
-        rightCup.position.set(-0.14 * scale, 0.04, 0);
-        rightCup.rotation.z = Math.PI / 2;
-
-        accGroup.add(band);
-        accGroup.add(leftCup);
-        accGroup.add(rightCup);
-      }
-
-      attachParent.add(accGroup);
     } catch (err) {
-      console.warn('3D Accessory attachment warning:', err);
+      console.warn('Eye scale morph warning:', err);
     }
   }, []);
 
@@ -464,6 +357,17 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
       const rightLeg = getBoneNode('rightUpperLeg');
       if (leftLeg && leftLeg.scale) leftLeg.scale.y = params.legLength;
       if (rightLeg && rightLeg.scale) rightLeg.scale.y = params.legLength;
+
+      // Arm thickness: widen the arm bones (X/Z only — Y is the bone length).
+      // Previously nothing read params.armThickness, so the slider did nothing.
+      const armBones = ['leftUpperArm', 'rightUpperArm', 'leftLowerArm', 'rightLowerArm'];
+      armBones.forEach((name) => {
+        const node = getBoneNode(name);
+        if (node && node.scale) {
+          node.scale.x = params.armThickness;
+          node.scale.z = params.armThickness;
+        }
+      });
     } catch (err) {
       console.warn('Skeletal morph warning:', err);
     }
@@ -477,16 +381,17 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
         if (!targetRoot) return;
 
         if (targetRoot.scale) {
-          targetRoot.scale.set(1.0, params.height, 1.0);
+          // Uniform scale: a Y-only stretch distorted the model's proportions.
+          targetRoot.scale.setScalar(params.height);
         }
 
         if (vrm) {
           applySkeletalMorphs(vrm, params);
         }
 
-        // Apply material recoloring & 3D accessories
+        // Apply material recoloring (procedural 3D accessories were removed).
         applyMaterialColorsToScene(targetRoot, params);
-        update3DAccessories(vrm, gltfGroup, params);
+        applyEyeScaleMorphs(vrm, params.eyeScale);
 
         if (vrm && vrm.expressionManager && typeof vrm.expressionManager.setValue === 'function') {
           const presets = ['smile', 'wink', 'angry', 'sad', 'surprised', 'happy', 'neutral', 'blink'];
@@ -508,7 +413,7 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
         console.warn('Apply params warning:', err);
       }
     },
-    [applySkeletalMorphs, applyMaterialColorsToScene, update3DAccessories]
+    [applySkeletalMorphs, applyMaterialColorsToScene, applyEyeScaleMorphs]
   );
 
   useEffect(() => {

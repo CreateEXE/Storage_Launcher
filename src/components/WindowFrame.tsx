@@ -86,7 +86,8 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({
   onMaximize,
   onClose,
   onContextMenuWindow,
-  children
+  children,
+  boundsRef
 }) => {
   const isDraggingRef = useRef(false);
   const dragOffsetRef = useRef({ x: 0, y: 0 });
@@ -179,8 +180,18 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({
     }
 
     if (!isDraggingRef.current) return;
-    const newX = Math.max(0, e.clientX - dragOffsetRef.current.x);
-    const newY = Math.max(0, e.clientY - dragOffsetRef.current.y);
+    // Partially off-screen is allowed: keep a grabbable strip visible —
+    // 96px of width and the 28px title bar — so the window can always be
+    // dragged back. The desktop container bounds the far side; without a
+    // measured container, fall back to the viewport.
+    const containerW = boundsRef?.current?.clientWidth || window.innerWidth;
+    const containerH = boundsRef?.current?.clientHeight || window.innerHeight;
+    const minX = -(win.width - 96);
+    const maxX = Math.max(minX, containerW - 96);
+    const minY = -(28 - 8);
+    const maxY = Math.max(minY, containerH - 28);
+    const newX = Math.min(maxX, Math.max(minX, e.clientX - dragOffsetRef.current.x));
+    const newY = Math.min(maxY, Math.max(minY, e.clientY - dragOffsetRef.current.y));
     onMove(newX, newY);
   };
 
