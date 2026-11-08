@@ -170,7 +170,7 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
     const vrmExportData = {
       asset: {
         version: '2.0',
-        generator: 'Savage VRM Studio 2026 Engine'
+        generator: 'Oni\'s Storage Launcher VRM Studio 2026 Engine'
       },
       extensionsUsed: ['VRMC_vrm', 'VRMC_materials_mtoon'],
       extensions: {
@@ -178,7 +178,7 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
           specVersion: '1.0',
           meta: {
             name: cleanName.replace('.vrm', ''),
-            authors: ['Savage VRM Studio User'],
+            authors: ['Oni Song'],
             avatarPermission: 'everyone',
             allowExcessivelyViolentUsage: true,
             allowExcessivelySexualUsage: true,
