@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 import { ShieldAlert, RefreshCw, HardDrive } from 'lucide-react';
+import { clearAppLocalStorage } from './utils/appStorage';
 
 interface Props {
   children: ReactNode;
@@ -33,7 +34,9 @@ class GlobalSystemErrorBoundary extends Component<Props, State> {
 
   private handleFullReset = () => {
     try {
-      localStorage.clear();
+      // Scoped reset: only this app's own keys. Previously
+      // localStorage.clear() wiped everything under the WebView origin.
+      clearAppLocalStorage();
       window.location.reload();
     } catch {
       window.location.reload();

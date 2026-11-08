@@ -415,12 +415,35 @@ export class FileManagerService {
     // fail with "Could not read model data". No caller depends on the old
     // passthrough: renameItem already reads base64 directly for native
     // binary files, and the other callers all handle data: URLs.
-    // (Known limit: SafStorageBridge caps base64 reads at 30MB and silently
-    // truncates beyond it; Vessel.vrm at ~16MB is fine.)
+    //
+    // Size limits: the native bridges read whole files into memory before
+    // base64-encoding them (SAF: 30MB, direct storage: 40MB). A file over
+    // its limit is refused HERE, with a clear error, instead of letting
+    // the bridge return a truncated partial file that looks complete.
+    // Callers must catch the thrown Error and show it to the user.
+    const BINARY_READ_LIMIT = this.isSafActive() ? 30 * 1024 * 1024 : 40 * 1024 * 1024;
+    if (isBinary) {
+      const known = this.files.find((f) => f.path === filePath);
+      const sizeBytes = known?.sizeBytes || 0;
+      if (sizeBytes > BINARY_READ_LIMIT) {
+        throw new Error(
+          `"${known?.name || filePath}" is ${this.formatBytes(sizeBytes)} — too large to load into memory ` +
+          `(limit ${this.formatBytes(BINARY_READ_LIMIT)} for device-storage files). ` +
+          `Use a smaller file.`
+        );
+      }
+    }
+
     if (this.isSafActive() && window.SafStorage) {
       if (isBinary) {
         const base64 = window.SafStorage.readSafFileAsBase64(filePath);
-        if (!base64) return '';
+        if (!base64) {
+          const known = this.files.find((f) => f.path === filePath);
+          if ((known?.sizeBytes || 0) > 0) {
+            throw new Error(`Could not read "${known?.name || filePath}" from device storage.`);
+          }
+          return '';
+        }
         try {
           return `data:application/octet-stream;base64,${base64}`;
         } catch {
@@ -433,7 +456,13 @@ export class FileManagerService {
     if (this.isNativeStorageAvailable && window.AndroidStorage) {
       if (isBinary) {
         const base64 = window.AndroidStorage.readFileAsBase64(filePath);
-        if (!base64) return '';
+        if (!base64) {
+          const known = this.files.find((f) => f.path === filePath);
+          if ((known?.sizeBytes || 0) > 0) {
+            throw new Error(`Could not read "${known?.name || filePath}" from device storage.`);
+          }
+          return '';
+        }
         try {
           return `data:application/octet-stream;base64,${base64}`;
         } catch {

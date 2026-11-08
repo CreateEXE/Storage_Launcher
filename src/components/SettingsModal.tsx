@@ -14,6 +14,8 @@ import {
   Sparkles
 } from 'lucide-react';
 
+import { clearAppLocalStorage } from '../utils/appStorage';
+
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -202,7 +204,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onClick={() => {
                   if (confirm('Reset system cache and local storage?')) {
                     try {
-                      localStorage.clear();
+                      // Scoped reset: only this app's own keys, not
+                      // localStorage.clear() (which wiped everything under
+                      // the WebView origin).
+                      clearAppLocalStorage();
                       window.location.reload();
                     } catch {
                       window.location.reload();

@@ -24,6 +24,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { ContextMenu, ContextMenuState } from './components/ContextMenu';
 import { ToastNotificationStack } from './components/ToastNotificationStack';
 import { FileManagerService } from './services/fileManager';
+import { NotificationService } from './services/notificationService';
 import { FileTypeDetector } from './services/fileInspector';
 import { FileItem } from './types';
 import { WindowNode, WindowType } from './types/window';
@@ -55,14 +56,42 @@ export default function App() {
   };
 
   // Global Runtime Exception & Promise Rejection Safeguard
+  // Errors are trapped so one bad promise cannot take the whole desktop
+  // down — but trapping must not mean swallowing. Previously these
+  // handlers only wrote to the console (invisible on a phone) and called
+  // preventDefault(), so real failures vanished without a trace. Now each
+  // distinct error is also shown to the user as an error toast, deduped
+  // so a looping failure cannot spam the screen.
   useEffect(() => {
+    const notif = NotificationService.getInstance();
+    const seenErrors = new Map<string, number>();
+    const reportError = (kind: string, detail: string) => {
+      const key = `${kind}:${detail}`;
+      const now = Date.now();
+      const last = seenErrors.get(key) || 0;
+      if (now - last < 10000) return; // same error within 10s: already shown
+      seenErrors.set(key, now);
+      if (seenErrors.size > 50) seenErrors.clear();
+      notif.addToast(
+        'App Error',
+        `${kind}: ${detail.slice(0, 200)}`,
+        'error',
+        6000
+      );
+    };
+
     const handleGlobalError = (event: ErrorEvent) => {
-      console.warn('Trapped global runtime JS error:', event.error || event.message);
+      const detail = String((event.error && (event.error as Error).message) || event.message || 'Unknown error');
+      console.error('Trapped global runtime JS error:', event.error || event.message);
+      reportError('Runtime error', detail);
       event.preventDefault();
     };
 
     const handleGlobalRejection = (event: PromiseRejectionEvent) => {
-      console.warn('Trapped global promise rejection:', event.reason);
+      const reason = event.reason;
+      const detail = String((reason && (reason as Error).message) || reason || 'Unknown rejection');
+      console.error('Trapped global promise rejection:', reason);
+      reportError('Unhandled promise rejection', detail);
       event.preventDefault();
     };
 
@@ -260,7 +289,20 @@ export default function App() {
     if (!file || !isSupportedModelFile(file)) return file || undefined;
 
     const name = file.name.toLowerCase();
-    const rawContent = file.content || fs.readFileContent(file.path, true);
+    let rawContent = '';
+    try {
+      rawContent = file.content || fs.readFileContent(file.path, true);
+    } catch (e) {
+      // A read failure (e.g. file too large for the in-memory read) must
+      // not open the viewer with a dead file: report it and stop.
+      NotificationService.getInstance().addToast(
+        'Could Not Open Model',
+        e instanceof Error ? e.message : `Could not read "${file.name}".`,
+        'error',
+        6000
+      );
+      return undefined;
+    }
     const safeContent = typeof rawContent === 'string' && rawContent.trim() ? rawContent : '';
 
     if (safeContent.startsWith('data:') || safeContent.startsWith('http://') || safeContent.startsWith('https://') || safeContent.startsWith('blob:')) {
@@ -268,11 +310,25 @@ export default function App() {
     }
 
     if (safeContent.startsWith('content://') || safeContent.startsWith('file://')) {
-      return { ...file, content: safeContent };
+      // A raw content:// or file:// path is not loadable model data — the
+      // WebView page cannot fetch it, and the viewer would wrap the path
+      // text in a Blob and fail with a generic parse error. Re-read it
+      // properly (post-PR #7 readFileContent returns base64 data: URLs);
+      // if that still does not yield loadable data, do not hand the viewer
+      // a path pretending to be a model.
+      const reread = fs.readFileContent(file.path, true);
+      if (reread.startsWith('data:') || reread.startsWith('blob:')) {
+        return { ...file, content: reread };
+      }
+      return { ...file, content: '' };
     }
 
     if (file.path.startsWith('content://') || file.path.startsWith('file://')) {
-      return { ...file, content: file.path };
+      const reread = fs.readFileContent(file.path, true);
+      if (reread.startsWith('data:') || reread.startsWith('blob:')) {
+        return { ...file, content: reread };
+      }
+      return { ...file, content: '' };
     }
 
     if (file.path.startsWith('/')) {
@@ -537,7 +593,12 @@ export default function App() {
   // Recognizes VRM avatars and 3D files EVEN IF renamed to .dat, .bin, .png, etc.!
   const handleOpenFile = (file: FileItem) => {
     setSelectedFile(file);
-    const normalized = normalizeModelFileForViewer(file) || file;
+    // normalizeModelFileForViewer returns undefined when the file could
+    // not be read (and already told the user why). Do NOT fall back to
+    // the raw file: opening the viewer with an unreadable file would
+    // silently load nothing — or worse, the bundled-asset fallback.
+    const normalized = normalizeModelFileForViewer(file);
+    if (!normalized) return;
     const inspection = FileTypeDetector.inspect(normalized);
 
     if (inspection.is3DModel || inspection.isVRM || file.type === 'VRM' || file.type === 'glTF') {

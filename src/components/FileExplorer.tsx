@@ -331,9 +331,21 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
     if (selectedFileIds.size === 0) return;
     const selectedItems = visibleFiles.filter((f) => selectedFileIds.has(f.id));
     if (confirm(`Permanently delete ${selectedItems.length} selected item(s)?`)) {
-      selectedItems.forEach((f) => fs.deleteItem(f.path));
+      // Report the honest count: deleteItem returns false when the native
+      // delete fails, and previously every item was reported deleted
+      // regardless.
+      let deleted = 0;
+      const failed: string[] = [];
+      selectedItems.forEach((f) => {
+        if (fs.deleteItem(f.path)) deleted++;
+        else failed.push(f.name);
+      });
       setSelectedFileIds(new Set());
-      showNotification(`Bulk deleted ${selectedItems.length} item(s)`);
+      showNotification(
+        failed.length === 0
+          ? `Bulk deleted ${deleted} item(s)`
+          : `Deleted ${deleted} of ${selectedItems.length} item(s). Failed: ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '…' : ''}`
+      );
     }
   };
 
@@ -345,17 +357,47 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
     const cleanTarget = targetDir.trim();
     const selectedItems = visibleFiles.filter((f) => selectedFileIds.has(f.id));
 
+    // A failed read must never produce an empty copy, and a move must
+    // never delete the original when the copy did not happen. Previously
+    // a read failure returned '' (or threw), createFile still wrote an
+    // empty file, and move then deleted the original — silent data loss.
+    let done = 0;
+    const failed: string[] = [];
     selectedItems.forEach((item) => {
-      const isBinary = item.type === 'VRM' || item.type === 'glTF' || item.type === 'Image';
-      const content = fs.readFileContent(item.path, isBinary);
-      fs.createFile(cleanTarget, item.name, item.type, content);
-      if (mode === 'move') {
-        fs.deleteItem(item.path);
+      try {
+        const isBinary = item.type === 'VRM' || item.type === 'glTF' || item.type === 'Image';
+        let content = '';
+        try {
+          content = fs.readFileContent(item.path, isBinary);
+        } catch (err) {
+          failed.push(`${item.name} (${err instanceof Error ? err.message : 'could not be read'})`);
+          return;
+        }
+        if (!content && (item.sizeBytes || 0) > 0) {
+          failed.push(`${item.name} (could not be read)`);
+          return;
+        }
+        fs.createFile(cleanTarget, item.name, item.type, content);
+        if (mode === 'move') {
+          if (!fs.deleteItem(item.path)) {
+            // Copy succeeded but the original could not be removed: keep
+            // both and report it instead of claiming a clean move.
+            failed.push(`${item.name} (copied, original could not be removed)`);
+            return;
+          }
+        }
+        done++;
+      } catch (err) {
+        failed.push(`${item.name} (${err instanceof Error ? err.message : 'failed'})`);
       }
     });
 
     setSelectedFileIds(new Set());
-    showNotification(`Bulk ${mode}ed ${selectedItems.length} item(s) to ${cleanTarget}`);
+    showNotification(
+      failed.length === 0
+        ? `Bulk ${mode}ed ${done} item(s) to ${cleanTarget}`
+        : `Bulk ${mode}: ${done} of ${selectedItems.length} succeeded. Failed: ${failed.slice(0, 3).join('; ')}${failed.length > 3 ? '…' : ''}`
+    );
   };
 
   const handleBulkDownload = () => {

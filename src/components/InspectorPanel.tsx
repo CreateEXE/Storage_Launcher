@@ -390,7 +390,7 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
                   <div className="p-2.5 rounded bg-[#060a12] border border-[#172a45] space-y-2">
                     <div className="text-[11px] font-semibold text-cyan-300 flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                      <span>Embedded VRM 0.0 Avatar Metadata</span>
+                      <span>VRM Avatar Metadata</span>
                     </div>
 
                     <div className="space-y-1.5 text-[10px] font-mono-code">
@@ -400,23 +400,23 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
                       </div>
                       <div className="flex justify-between border-b border-[#121c2e] py-0.5">
                         <span className="text-slate-400">Author / Studio</span>
-                        <span className="text-slate-200">{inspection.embeddedMetadata.author}</span>
+                        <span className="text-slate-200">{inspection.embeddedMetadata.author || 'Not verified'}</span>
                       </div>
                       <div className="flex justify-between border-b border-[#121c2e] py-0.5">
                         <span className="text-slate-400">Exporter Engine</span>
-                        <span className="text-slate-300">{inspection.embeddedMetadata.exporter}</span>
+                        <span className="text-slate-300">{inspection.embeddedMetadata.exporter || 'Not verified'}</span>
                       </div>
                       <div className="flex justify-between border-b border-[#121c2e] py-0.5">
                         <span className="text-slate-400">VRM Spec Version</span>
-                        <span className="text-cyan-400 font-bold">{inspection.vrmVersion}</span>
+                        <span className="text-cyan-400 font-bold">{inspection.vrmVersion || 'Not verified'}</span>
                       </div>
                       <div className="flex justify-between border-b border-[#121c2e] py-0.5">
                         <span className="text-slate-400">Humanoid Bones Rig</span>
-                        <span className="text-emerald-400">{inspection.embeddedMetadata.bonesCount} bones</span>
+                        <span className="text-emerald-400">{inspection.embeddedMetadata.bonesCount != null ? `${inspection.embeddedMetadata.bonesCount} bones` : 'Not verified'}</span>
                       </div>
                       <div className="flex justify-between border-b border-[#121c2e] py-0.5">
                         <span className="text-slate-400">BlendShape Morphs</span>
-                        <span className="text-purple-300">{inspection.embeddedMetadata.blendShapeCount} expressions</span>
+                        <span className="text-purple-300">{inspection.embeddedMetadata.blendShapeCount != null ? `${inspection.embeddedMetadata.blendShapeCount} expressions` : 'Not verified'}</span>
                       </div>
                     </div>
 
@@ -429,21 +429,21 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
                             <ShieldCheck className="w-3 h-3 text-emerald-400" />
                             <span>Commercial Usage</span>
                           </span>
-                          <span>{inspection.embeddedMetadata.commercialUsage}</span>
+                          <span>{inspection.embeddedMetadata.commercialUsage || 'Not verified'}</span>
                         </div>
                         <div className="flex items-center justify-between text-slate-300 bg-[#091524] px-1.5 py-0.5 rounded">
                           <span className="flex items-center gap-1">
                             <ShieldAlert className="w-3 h-3 text-amber-400" />
                             <span>Violent Actions</span>
                           </span>
-                          <span>{inspection.embeddedMetadata.violentUsage}</span>
+                          <span>{inspection.embeddedMetadata.violentUsage || 'Not verified'}</span>
                         </div>
                         <div className="flex items-center justify-between text-slate-300 bg-[#091524] px-1.5 py-0.5 rounded">
                           <span className="flex items-center gap-1">
                             <ShieldAlert className="w-3 h-3 text-red-400" />
                             <span>Sexual Content</span>
                           </span>
-                          <span>{inspection.embeddedMetadata.sexualUsage}</span>
+                          <span>{inspection.embeddedMetadata.sexualUsage || 'Not verified'}</span>
                         </div>
                       </div>
                     </div>
