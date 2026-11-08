@@ -28,7 +28,8 @@ import { NotificationService } from './services/notificationService';
 import { FileTypeDetector } from './services/fileInspector';
 import { FileItem } from './types';
 import { WindowNode, WindowType } from './types/window';
-import { AvatarParameters, DEFAULT_AVATAR_PARAMS } from './types/avatar';
+import { AvatarParameters, DEFAULT_AVATAR_PARAMS, normalizeAvatarParams } from './types/avatar';
+import type { MorphMapSummary } from './services/vrmMorphMap';
 import {
   DesktopCustomization,
   DEFAULT_CUSTOMIZATION
@@ -137,8 +138,38 @@ export default function App() {
   const [files, setFiles] = useState<FileItem[]>(fs.getFiles());
   const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
 
-  // Avatar Morph & Color State
-  const [avatarParams, setAvatarParams] = useState<AvatarParameters>(DEFAULT_AVATAR_PARAMS);
+  // Avatar Morph & Color State — persisted across reloads. The editor
+  // used to reset everything to defaults on every reload (params lived
+  // only in useState); now the current params are saved to localStorage on
+  // every change and restored on mount. Explicit .avatar.json preset files
+  // stay the deliberate save path — this is just the working state.
+  // Key follows the app's existing 'savage_*' localStorage pattern. A
+  // corrupt or foreign value falls back to defaults, never crashes.
+  const AVATAR_PARAMS_STORAGE_KEY = 'savage_avatar_params';
+  const loadPersistedAvatarParams = (): AvatarParameters => {
+    try {
+      const raw = localStorage.getItem(AVATAR_PARAMS_STORAGE_KEY);
+      if (!raw) return { ...DEFAULT_AVATAR_PARAMS };
+      const parsed = JSON.parse(raw) as Partial<AvatarParameters>;
+      if (!parsed || typeof parsed !== 'object') return { ...DEFAULT_AVATAR_PARAMS };
+      return normalizeAvatarParams(parsed);
+    } catch {
+      return { ...DEFAULT_AVATAR_PARAMS };
+    }
+  };
+  const [avatarParams, setAvatarParams] = useState<AvatarParameters>(loadPersistedAvatarParams);
+  useEffect(() => {
+    try {
+      localStorage.setItem(AVATAR_PARAMS_STORAGE_KEY, JSON.stringify(avatarParams));
+    } catch {
+      // Storage full / unavailable: the session still works, it just
+      // won't survive a reload. Never crash the app over persistence.
+    }
+  }, [avatarParams]);
+  // Verified morph map for the model loaded in the 3D viewer (built by
+  // Viewer3D's inspectModel). Shared with the AvatarEditor so it can enable
+  // only the sliders whose target was verified on that model.
+  const [morphMap, setMorphMap] = useState<MorphMapSummary | null>(null);
 
   // Animation Studio playback state
   const [selectedAnim, setSelectedAnim] = useState<string>('idle');
@@ -781,6 +812,7 @@ export default function App() {
                   file={win.file}
                   avatarParams={avatarParams}
                   onAvatarParamsChange={setAvatarParams}
+                  onMorphMapChange={setMorphMap}
                   onOpenAvatarEditor={() =>
                     openWindow('avatar_editor', {
                       parentId: win.id,
@@ -802,6 +834,7 @@ export default function App() {
                 <AvatarEditor
                   params={avatarParams}
                   onChange={setAvatarParams}
+                  morphMap={morphMap}
                   onOpenColorPicker={(targetProp, targetLabel) =>
                     openWindow('color_picker', {
                       parentId: win.id,

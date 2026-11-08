@@ -7,11 +7,15 @@ export interface AvatarParameters {
   waistWidth: number;      // 0.7 to 1.3
   hipWidth: number;        // 0.8 to 1.4
   legLength: number;       // 0.8 to 1.3
+  legThickness: number;    // 0.8 to 1.3
+  armLength: number;       // 0.8 to 1.3
   armThickness: number;    // 0.8 to 1.3
 
   // Face Sliders
   eyeScale: number;        // 0.7 to 1.4
   eyeSpacing: number;      // -0.03 to 0.03
+  browRaise: number;       // -1 (down) to 1 (up); VRM brow morphs only
+  mouthOpen: number;       // 0 to 1; VRM mouth morph only
   chinWidth: number;       // 0.8 to 1.2
   earSize: number;         // 0.6 to 1.5
 
@@ -30,6 +34,82 @@ export interface AvatarParameters {
   accessory: 'cat_ears' | 'kitsune' | 'elf_ears' | 'cyber_horns' | 'headphones' | 'none';
   outfit: 'cyber_jacket' | 'mmo_tunic' | 'school_uniform' | 'combat_suit' | 'hoodie';
   expression: 'neutral' | 'smile' | 'wink' | 'fierce' | 'surprised';
+  /**
+   * Expression blend weights, keyed by VRM expression name
+   * ('happy', 'angry', 'sad', 'relaxed', 'surprised', 'blink', 'aa',
+   * 'ee', 'ih', 'oh', 'ou', 'neutral'). Each weight is 0–1 and several
+   * presets can be active at once — this is the single source of truth
+   * for expressions. The legacy single-choice `expression` field is kept
+   * for saved presets: when `expressionBlends` is empty, the effective
+   * blend is derived from it (see getExpressionBlends).
+   */
+  expressionBlends: Record<string, number>;
+}
+
+/**
+ * Editor expression ids map to the VRM preset names the model registers.
+ * (The viewer also drives VRM presets directly — 'sad', 'relaxed', 'aa',
+ * 'ee', 'ih', 'oh', 'ou' — which have no editor id; those live in
+ * `expressionBlends` under their own VRM name.)
+ */
+export const EXPRESSION_VRM_NAME: Record<AvatarParameters['expression'], string> = {
+  neutral: 'neutral',
+  smile: 'happy',
+  wink: 'blink',
+  fierce: 'angry',
+  surprised: 'surprised',
+};
+
+/** Editor expression id for a VRM preset name, when one exists. */
+export const EXPRESSION_EDITOR_ID: Record<string, AvatarParameters['expression'] | undefined> = {
+  neutral: 'neutral',
+  happy: 'smile',
+  blink: 'wink',
+  angry: 'fierce',
+  surprised: 'surprised',
+};
+
+const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+
+/**
+ * The effective expression blend map for a set of params. Explicit
+ * `expressionBlends` win; when they are empty (e.g. an old preset that
+ * only stored the single-choice `expression`), the blend is derived from
+ * that choice — 'fierce' at 0.85, matching the old single-preset weight,
+ * everything else at full weight. Never returns a weight outside 0–1.
+ */
+export function getExpressionBlends(params: AvatarParameters): Record<string, number> {
+  const out: Record<string, number> = {};
+  const blends = params.expressionBlends || {};
+  for (const [name, w] of Object.entries(blends)) {
+    const v = clamp01(Number(w) || 0);
+    if (v > 0) out[name] = v;
+  }
+  if (Object.keys(out).length > 0) return out;
+  if (params.expression && params.expression !== 'neutral') {
+    out[EXPRESSION_VRM_NAME[params.expression]] = params.expression === 'fierce' ? 0.85 : 1;
+  }
+  return out;
+}
+
+/**
+ * Defensive merge for params loaded from anywhere (persisted state, preset
+ * files, older saves): fill in any missing keys from the defaults, make
+ * sure `expressionBlends` is an object, and derive it from the legacy
+ * single-choice `expression` when it is missing so old presets still
+ * show their expression.
+ */
+export function normalizeAvatarParams(params: Partial<AvatarParameters> | null | undefined): AvatarParameters {
+  const merged: AvatarParameters = { ...DEFAULT_AVATAR_PARAMS, ...(params || {}) };
+  if (!merged.expressionBlends || typeof merged.expressionBlends !== 'object') {
+    merged.expressionBlends = {};
+  }
+  if (Object.keys(merged.expressionBlends).length === 0 && merged.expression && merged.expression !== 'neutral') {
+    merged.expressionBlends = {
+      [EXPRESSION_VRM_NAME[merged.expression]]: merged.expression === 'fierce' ? 0.85 : 1,
+    };
+  }
+  return merged;
 }
 
 export const DEFAULT_AVATAR_PARAMS: AvatarParameters = {
@@ -40,10 +120,14 @@ export const DEFAULT_AVATAR_PARAMS: AvatarParameters = {
   waistWidth: 1.0,
   hipWidth: 1.0,
   legLength: 1.0,
+  legThickness: 1.0,
+  armLength: 1.0,
   armThickness: 1.0,
 
   eyeScale: 1.0,
   eyeSpacing: 0.0,
+  browRaise: 0,
+  mouthOpen: 0,
   chinWidth: 1.0,
   earSize: 1.0,
 
@@ -59,7 +143,8 @@ export const DEFAULT_AVATAR_PARAMS: AvatarParameters = {
   hairstyle: 'twintails',
   accessory: 'cat_ears',
   outfit: 'cyber_jacket',
-  expression: 'neutral'
+  expression: 'neutral',
+  expressionBlends: {}
 };
 
 export interface AvatarPreset {

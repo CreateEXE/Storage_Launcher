@@ -15,6 +15,7 @@ import {
   ZoomOut,
   Camera,
   Maximize2,
+  RotateCw,
   Play,
   Pause,
   Sparkles,
@@ -29,11 +30,28 @@ import {
   Box,
   Layers,
   FileUp,
-  HardDrive
+  HardDrive,
+  Download,
+  ListChecks
 } from 'lucide-react';
 import { FileItem } from '../types';
-import { AvatarParameters, DEFAULT_AVATAR_PARAMS } from '../types/avatar';
+import { AvatarParameters, DEFAULT_AVATAR_PARAMS, getExpressionBlends, EXPRESSION_EDITOR_ID } from '../types/avatar';
 import { FileManagerService } from '../services/fileManager';
+import {
+  inspectModel,
+  applyVerifiedMorphs,
+  toMorphMapSummary,
+  logMorphMap,
+  findHeadMesh,
+  SLIDER_FACE_MORPHS,
+  type MorphMap,
+  type MorphMapSummary,
+} from '../services/vrmMorphMap';
+import {
+  registerExportableModel,
+  clearExportableModel,
+  exportCurrentModelAsGlb,
+} from '../services/modelExport';
 
 interface Viewer3DProps {
   file?: FileItem;
@@ -45,6 +63,8 @@ interface Viewer3DProps {
   isMaximized?: boolean;
   onOpenAvatarEditor?: () => void;
   onOpenAnimationStudio?: () => void;
+  /** Fires whenever a model is (re-)inspected, with the verified morph map. */
+  onMorphMapChange?: (summary: MorphMapSummary | null) => void;
 }
 
 interface VrmMetaInfo {
@@ -68,7 +88,8 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
   onClose,
   isMaximized = false,
   onOpenAvatarEditor,
-  onOpenAnimationStudio
+  onOpenAnimationStudio,
+  onMorphMapChange
 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -87,9 +108,30 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
     }
   };
   const gltfSceneRef = useRef<THREE.Group | null>(null);
+  // Verified morph map for the currently loaded model (see
+  // services/vrmMorphMap.ts). Every slider/color is applied ONLY through
+  // this map — a control whose target could not be verified on the loaded
+  // model is never applied, and the editor disables it with the reason.
+  const morphMapRef = useRef<MorphMap | null>(null);
+  const [morphMapSummary, setMorphMapSummary] = useState<MorphMapSummary | null>(null);
+  const [showMorphMapPanel, setShowMorphMapPanel] = useState<boolean>(false);
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
   const animationFrameIdRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Hair-follower bases: hair meshes are scaled by headScale in the viewer
+  // (the morph map itself only scales the head mesh). Base scales are
+  // captured on first sight so the follower writes absolute values, never
+  // accumulating. Cleared whenever a new model is inspected.
+  const hairBaseScalesRef = useRef<Map<string, THREE.Vector3>>(new Map());
+  // Bounding-box height the camera was last framed for. When a morph
+  // changes the model's size, the camera distance/target are rescaled by
+  // the same ratio so the model stays framed without resetting the orbit.
+  const lastModelHeightRef = useRef<number | null>(null);
+  // Turntable spin (a ref so the render loop sees it without a stale
+  // closure; mirrored in state for the button highlight).
+  const turntableRef = useRef(false);
+  const [turntableOn, setTurntableOn] = useState(false);
 
   const fs = FileManagerService.getInstance();
   const [showNativeStoragePicker, setShowNativeStoragePicker] = useState<boolean>(false);
@@ -181,111 +223,13 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
 
   const avatarParamsRef = useRef<AvatarParameters>(avatarParams);
 
-  // Helper to recolor a Three.js material safely
-  const setMaterialColorSafe = (mat: any, colorHex: string, emissiveHex?: string) => {
-    try {
-      if (!mat || !colorHex) return;
-      if (mat.color && typeof mat.color.set === 'function') {
-        mat.color.set(colorHex);
-      }
-      if (emissiveHex && mat.emissive && typeof mat.emissive.set === 'function') {
-        mat.emissive.set(emissiveHex);
-      }
-      if (mat.uniforms) {
-        if (mat.uniforms.litFactor?.value?.set) mat.uniforms.litFactor.value.set(colorHex);
-        if (mat.uniforms.shadeColor?.value?.set) mat.uniforms.shadeColor.value.set(colorHex);
-      }
-      mat.needsUpdate = true;
-    } catch {}
-  };
-
-  // Traverses model scene and applies skin, hair, eye, outfit, and neon colors
-  const applyMaterialColorsToScene = useCallback((root: THREE.Object3D, params: AvatarParameters) => {
-    try {
-      root.traverse((obj) => {
-        if ((obj as THREE.Mesh).isMesh) {
-          const mesh = obj as THREE.Mesh;
-          const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-
-          const meshName = (mesh.name || '').toLowerCase();
-
-          materials.forEach((mat) => {
-            if (!mat) return;
-            const matName = (mat.name || '').toLowerCase();
-            const combined = `${meshName} ${matName}`;
-
-            if (
-              combined.includes('skin') ||
-              combined.includes('body') ||
-              combined.includes('face') ||
-              combined.includes('head') ||
-              combined.includes('arm') ||
-              combined.includes('leg') ||
-              combined.includes('hand') ||
-              combined.includes('torso')
-            ) {
-              setMaterialColorSafe(mat, params.skinColor);
-            } else if (
-              combined.includes('hair') ||
-              combined.includes('bangs') ||
-              combined.includes('ponytail') ||
-              combined.includes('twintail') ||
-              combined.includes('spiky') ||
-              combined.includes('bob') ||
-              combined.includes('strand')
-            ) {
-              setMaterialColorSafe(mat, params.hairColor);
-            } else if (
-              combined.includes('eye') ||
-              combined.includes('iris') ||
-              combined.includes('pupil') ||
-              combined.includes('cornea')
-            ) {
-              setMaterialColorSafe(mat, params.eyeColor);
-            } else if (
-              combined.includes('coat') ||
-              combined.includes('jacket') ||
-              combined.includes('outfit') ||
-              combined.includes('cloth') ||
-              combined.includes('dress') ||
-              combined.includes('tunic') ||
-              combined.includes('uniform') ||
-              combined.includes('robe') ||
-              combined.includes('suit') ||
-              combined.includes('hoodie')
-            ) {
-              setMaterialColorSafe(mat, params.coatColor);
-            } else if (
-              combined.includes('inner') ||
-              combined.includes('shirt') ||
-              combined.includes('ribbon') ||
-              combined.includes('collar') ||
-              combined.includes('top')
-            ) {
-              setMaterialColorSafe(mat, params.innerColor);
-            } else if (
-              combined.includes('boot') ||
-              combined.includes('shoe') ||
-              combined.includes('footwear') ||
-              combined.includes('sock')
-            ) {
-              setMaterialColorSafe(mat, params.bootsColor);
-            } else if (
-              combined.includes('neon') ||
-              combined.includes('glow') ||
-              combined.includes('emission') ||
-              combined.includes('accent') ||
-              combined.includes('cyber')
-            ) {
-              setMaterialColorSafe(mat, params.accentNeonColor, params.accentNeonColor);
-            }
-          });
-        }
-      });
-    } catch (err) {
-      console.warn('Material recoloring warning:', err);
-    }
-  }, []);
+  // NOTE: material recoloring used to live here as substring matching over
+  // mesh/material names (e.g. combined.includes('body')). That tinted the
+  // wrong materials — the outfit normal-map material `body_nm`, the robot
+  // arm materials, and the eye materials (the head mesh matched the skin
+  // branch first). Colors are now applied ONLY through the verified morph
+  // map (services/vrmMorphMap.ts), which binds each color to the exact
+  // material name(s) verified on the loaded model. See applyAvatarParametersToVrm.
 
   // Procedurally attaches 3D accessories (ears, horns, headphones) to the model head bone
   const update3DAccessories = useCallback((vrm: VRM | null, rootScene: THREE.Group | null, params: AvatarParameters) => {
@@ -411,64 +355,64 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
         accGroup.add(rightCup);
       }
 
+      // Accessories follow the head size: the group sits on the head bone,
+      // so it inherits the head bone transform, but headScale only scales
+      // the head *mesh* — the group itself must be scaled by the same
+      // factor or the ears/horns stay sized for the old head.
+      const headFactor = Math.min(1.2, Math.max(0.85, params.headScale || 1.0));
+      accGroup.scale.setScalar(headFactor);
+
       attachParent.add(accGroup);
     } catch (err) {
       console.warn('3D Accessory attachment warning:', err);
     }
   }, []);
 
-  // Helper to re-apply skeletal morphs on raw bone nodes safely
-  const applySkeletalMorphs = useCallback((vrm: VRM, params: AvatarParameters) => {
+  // Hair follows the head size. The verified morph map scales only the
+  // head mesh for headScale (hair is a separate mesh), so the viewer scales
+  // the hair meshes by the same factor. This runs ONLY when headScale was
+  // resolved as a head-mesh scale: when it was resolved as a head group or
+  // head bone, the hair is already inside that group/bone and scales with
+  // it — scaling it again here would double the effect. Writes are
+  // absolute, from the base scale captured on first sight, so they never
+  // accumulate across param changes.
+  const applyHeadFollowers = useCallback((root: THREE.Object3D, params: AvatarParameters) => {
     try {
-      if (!vrm || !vrm.humanoid) return;
-      const h = vrm.humanoid;
-
-      const getBoneNode = (name: any) => {
-        try {
-          if (typeof h.getRawBoneNode === 'function') {
-            const raw = h.getRawBoneNode(name);
-            if (raw) return raw;
-          }
-          if (typeof h.getNormalizedBoneNode === 'function') {
-            const norm = h.getNormalizedBoneNode(name);
-            if (norm) return norm;
-          }
-        } catch {
-          // ignore individual bone retrieval errors
+      const headRes = morphMapRef.current?.resolutions.find((r) => r.id === 'headScale');
+      const headScaleIsMesh =
+        headRes?.status === 'verified' && headRes.target.startsWith('skinned mesh');
+      if (!headScaleIsMesh) return;
+      const factor = Math.min(1.2, Math.max(0.85, params.headScale || 1.0));
+      root.traverse((obj) => {
+        const mesh = obj as THREE.Mesh;
+        if (!mesh.isMesh || !/^hair/i.test(mesh.name)) return;
+        let base = hairBaseScalesRef.current.get(mesh.uuid);
+        if (!base) {
+          base = mesh.scale.clone();
+          hairBaseScalesRef.current.set(mesh.uuid, base);
         }
-        return null;
-      };
-
-      const headNode = getBoneNode('head');
-      if (headNode && headNode.scale) headNode.scale.setScalar(params.headScale);
-
-      const chestNode = getBoneNode('chest') || getBoneNode('upperChest');
-      if (chestNode && chestNode.scale) {
-        chestNode.scale.x = params.shoulderWidth;
-        chestNode.scale.z = params.bustSize;
-      }
-
-      const spineNode = getBoneNode('spine');
-      if (spineNode && spineNode.scale) {
-        spineNode.scale.x = params.waistWidth;
-        spineNode.scale.z = params.waistWidth;
-      }
-
-      const hipsNode = getBoneNode('hips');
-      if (hipsNode && hipsNode.scale) {
-        hipsNode.scale.x = params.hipWidth;
-        hipsNode.scale.z = params.hipWidth;
-      }
-
-      const leftLeg = getBoneNode('leftUpperLeg');
-      const rightLeg = getBoneNode('rightUpperLeg');
-      if (leftLeg && leftLeg.scale) leftLeg.scale.y = params.legLength;
-      if (rightLeg && rightLeg.scale) rightLeg.scale.y = params.legLength;
+        mesh.scale.copy(base).multiplyScalar(factor);
+      });
     } catch (err) {
-      console.warn('Skeletal morph warning:', err);
+      console.warn('Head-follower warning:', err);
     }
   }, []);
 
+  // Applies avatar parameters ONLY through the verified morph map.
+  //
+  // The old implementation guessed bone bindings and was wrong in ways that
+  // morphed the wrong body section: chest.scale.z was called "bust" (it
+  // widens the whole torso and scales the arms/head, which are chest
+  // children), spine.scale was called "waist" (it scales the chest/head/
+  // arms too), hips.scale was called "hip width" (hips is the skeleton
+  // root, so it scales the spine and legs), and height was a Y-only root
+  // stretch (scale.set(1, h, 1)) that distorts proportions instead of
+  // changing height. All of that is gone. The morph map (built by
+  // inspectModel when the model loads) resolves each control to a bone /
+  // morph / mesh / material that was verified to control exactly that
+  // section, resets it to its base transform, and applies the absolute
+  // parameter value. Controls whose target could not be verified are never
+  // applied here, and the editor renders them disabled with the reason.
   const applyAvatarParametersToVrm = useCallback(
     (vrm: VRM | null, gltfGroup: THREE.Group | null, params: AvatarParameters) => {
       try {
@@ -476,45 +420,134 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
         const targetRoot = vrm ? vrm.scene : gltfGroup;
         if (!targetRoot) return;
 
-        if (targetRoot.scale) {
-          targetRoot.scale.set(1.0, params.height, 1.0);
-        }
+        // Verified morphs only — height, head, bust, shoulders, limbs,
+        // face morphs, and exact-material colors. See services/vrmMorphMap.
+        applyVerifiedMorphs(morphMapRef.current, params);
 
-        if (vrm) {
-          applySkeletalMorphs(vrm, params);
-        }
+        // Hair follows the head size (see applyHeadFollowers).
+        applyHeadFollowers(targetRoot, params);
 
-        // Apply material recoloring & 3D accessories
-        applyMaterialColorsToScene(targetRoot, params);
+        // Procedural accessories (ears / horns / headphones) attach to the
+        // head bone/group and are scaled by earSize. They are additions,
+        // not morphs of the model itself.
         update3DAccessories(vrm, gltfGroup, params);
 
+        // Expressions — single source of truth, same apply pass as the
+        // face sliders. The old code zeroed every preset and set one to
+        // full weight here, while the expressions bar wrote presets
+        // directly — two writers fighting over the same morph indices, so
+        // a slider change wiped a bar expression and vice versa. Now
+        // everything flows through params.expressionBlends (0–1 per VRM
+        // preset, several active at once):
+        //   1. Snapshot the morph influences the face sliders drive —
+        //      applyVerifiedMorphs just wrote them.
+        //   2. Zero every known preset, then set each blended weight.
+        //   3. Restore the snapshot: face sliders always win on the
+        //      morphs they drive, so an expression can never silently
+        //      overwrite a brow raise or eye size the user set.
         if (vrm && vrm.expressionManager && typeof vrm.expressionManager.setValue === 'function') {
-          const presets = ['smile', 'wink', 'angry', 'sad', 'surprised', 'happy', 'neutral', 'blink'];
-          presets.forEach((p) => {
+          const headMesh = findHeadMesh(targetRoot);
+          const snapshot = new Map<string, number>();
+          if (headMesh?.morphTargetInfluences && headMesh.morphTargetDictionary) {
+            for (const name of SLIDER_FACE_MORPHS) {
+              const idx = headMesh.morphTargetDictionary[name];
+              if (typeof idx === 'number' && idx < headMesh.morphTargetInfluences.length) {
+                snapshot.set(name, headMesh.morphTargetInfluences[idx]);
+              }
+            }
+          }
+          const knownPresets = ['happy', 'angry', 'sad', 'relaxed', 'surprised', 'blink', 'neutral', 'aa', 'ee', 'ih', 'oh', 'ou'];
+          for (const p of knownPresets) {
             try {
-              vrm.expressionManager?.setValue(p, 0);
+              vrm.expressionManager.setValue(p, 0);
             } catch {}
-          });
-
-          try {
-            if (params.expression === 'smile') vrm.expressionManager.setValue('happy', 1.0);
-            else if (params.expression === 'wink') vrm.expressionManager.setValue('blink', 1.0);
-            else if (params.expression === 'fierce') vrm.expressionManager.setValue('angry', 0.85);
-            else if (params.expression === 'surprised') vrm.expressionManager.setValue('surprised', 1.0);
-            else if (params.expression === 'neutral') vrm.expressionManager.setValue('neutral', 1.0);
-          } catch {}
+          }
+          const blends = getExpressionBlends(params);
+          for (const [name, weight] of Object.entries(blends)) {
+            try {
+              vrm.expressionManager.setValue(name, Math.min(1, Math.max(0, weight)));
+            } catch {}
+          }
+          if (headMesh?.morphTargetInfluences && headMesh.morphTargetDictionary) {
+            for (const [name, value] of snapshot) {
+              const idx = headMesh.morphTargetDictionary[name];
+              if (typeof idx === 'number' && idx < headMesh.morphTargetInfluences.length) {
+                headMesh.morphTargetInfluences[idx] = value;
+              }
+            }
+          }
         }
       } catch (err) {
         console.warn('Apply params warning:', err);
       }
     },
-    [applySkeletalMorphs, applyMaterialColorsToScene, update3DAccessories]
+    [update3DAccessories, applyHeadFollowers]
   );
 
   useEffect(() => {
     avatarParamsRef.current = avatarParams;
     applyAvatarParametersToVrm(vrmRef.current, gltfSceneRef.current, avatarParams);
-  }, [avatarParams, applyAvatarParametersToVrm]);
+    // Reframe after morphs: height / leg-length changes move the model's
+    // bounding box, and the framing from load time goes stale. Rescale the
+    // camera distance and target by the height ratio so the model stays
+    // framed — the orbit angles and zoom level are preserved, not reset.
+    const targetRoot = vrmRef.current ? vrmRef.current.scene : gltfSceneRef.current;
+    if (targetRoot) {
+      try {
+        const box = new THREE.Box3().setFromObject(targetRoot);
+        const size = box.getSize(new THREE.Vector3());
+        if (size.y > 0) {
+          const prev = lastModelHeightRef.current;
+          lastModelHeightRef.current = size.y;
+          if (prev !== null && prev > 0 && Math.abs(size.y - prev) / prev > 0.02) {
+            const ratio = size.y / prev;
+            cameraTargetRef.current.y *= ratio;
+            cameraDistanceRef.current = Math.max(0.8, Math.min(14.0, cameraDistanceRef.current * ratio));
+            updateCameraPosition();
+          }
+        }
+      } catch {}
+    }
+  }, [avatarParams, applyAvatarParametersToVrm, updateCameraPosition]);
+
+  // Inspect a freshly loaded model and publish its verified morph map.
+  // Inspection MUST run before any params are applied: it captures the base
+  // transforms the applier resets to, and it is what decides which sliders
+  // are real on this model. The summary goes to the editor (via App) and
+  // the full resolution log goes to the console.
+  const inspectLoadedModel = useCallback(
+    (root: THREE.Object3D, vrm: VRM | null, name: string) => {
+      // A new model means new hair-follower bases and a new framing height.
+      hairBaseScalesRef.current.clear();
+      lastModelHeightRef.current = null;
+      const map = inspectModel(root, vrm, name);
+      morphMapRef.current = map;
+      const summary = toMorphMapSummary(map);
+      setMorphMapSummary(summary);
+      logMorphMap(map);
+      registerExportableModel(root, name);
+      onMorphMapChange?.(summary);
+    },
+    [onMorphMapChange]
+  );
+
+  const clearMorphMap = useCallback(() => {
+    morphMapRef.current = null;
+    setMorphMapSummary(null);
+    clearExportableModel();
+    onMorphMapChange?.(null);
+  }, [onMorphMapChange]);
+
+  const handleExportGlb = useCallback(async () => {
+    setExportStatus('Exporting .glb…');
+    const result = await exportCurrentModelAsGlb();
+    if (result.ok) {
+      setExportStatus(`Saved ${result.fileName} — ${result.note}`);
+    } else {
+      setExportStatus(`Export failed: ${result.reason}`);
+    }
+    setTimeout(() => setExportStatus(null), 8000);
+  }, []);
 
   // Center & Fit Loaded Model Bounds
   const normalizeAndCenterModel = useCallback((modelGroup: THREE.Group, name: string) => {
@@ -532,6 +565,8 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
 
       scene.add(modelGroup);
       gltfSceneRef.current = modelGroup;
+      // Inspect BEFORE applying params (inspection captures base transforms).
+      inspectLoadedModel(modelGroup, null, name);
       applyAvatarParametersToVrm(null, modelGroup, avatarParamsRef.current);
 
       const box = new THREE.Box3().setFromObject(modelGroup);
@@ -574,7 +609,7 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
         fileName: name
       });
     }
-  }, [applyAvatarParametersToVrm, updateCameraPosition]);
+  }, [applyAvatarParametersToVrm, inspectLoadedModel, updateCameraPosition]);
 
   // Main 3D File Loader Function (Guarded with Error Protection)
   const loadModelFromUrl = useCallback((url: string, name: string) => {
@@ -681,6 +716,8 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
 
               scene.add(loadedVrm.scene);
               vrmRef.current = loadedVrm;
+              // Inspect BEFORE applying params (inspection captures base transforms).
+              inspectLoadedModel(loadedVrm.scene, loadedVrm, name);
               applyAvatarParametersToVrm(loadedVrm, null, avatarParamsRef.current);
 
               const box = new THREE.Box3().setFromObject(loadedVrm.scene);
@@ -785,7 +822,7 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
         fileName: name
       });
     }
-  }, [applyAvatarParametersToVrm, normalizeAndCenterModel, onAvatarParamsChange, updateCameraPosition]);
+  }, [applyAvatarParametersToVrm, inspectLoadedModel, normalizeAndCenterModel, onAvatarParamsChange, updateCameraPosition]);
 
   // Three.js Canvas Mount
   useEffect(() => {
@@ -884,6 +921,11 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
       } catch (err) {
         console.warn('Auto-load URL creation error:', err);
       }
+    } else if (!file) {
+      // No file was handed to the viewer (e.g. opened from the desktop
+      // icon): load the bundled VRM the editor's sliders are verified
+      // against, so the live preview and the editor work immediately.
+      loadModelFromUrl('/assets/models/vessel.vrm', 'vessel.vrm');
     }
 
     const handleResize = () => {
@@ -943,6 +985,13 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
 
       if (mixerRef.current) {
         mixerRef.current.update(dt);
+      }
+
+      // Turntable: slow orbit around the model. The ref (not state) is
+      // read here so the loop never sees a stale closure.
+      if (turntableRef.current) {
+        cameraThetaRef.current += dt * 0.45;
+        updateCameraPosition();
       }
 
       renderer.render(scene, camera);
@@ -1037,6 +1086,7 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
 
   const handleUnloadModel = () => {
     revokeModelBlobUrl();
+    clearMorphMap();
     const scene = sceneRef.current;
     if (scene) {
       if (vrmRef.current) {
@@ -1054,18 +1104,77 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
     setLoadingState({ isLoading: false, progress: 0, error: null, fileName: 'No Model Loaded' });
   };
 
+  // The expressions bar used to write presets straight to the
+  // expressionManager — a second writer beside the avatar params, so the
+  // next slider drag (which re-applies params) wiped the bar's expression,
+  // and a bar tap never survived a param change. It now goes through the
+  // same params as everything else: tapping a preset sets its blend to
+  // full weight (tapping the active one again clears it); the apply pass
+  // in applyAvatarParametersToVrm is the only writer.
   const setVrmExpression = (presetName: string) => {
-    if (vrmRef.current?.expressionManager) {
-      const presets = ['happy', 'angry', 'sad', 'relaxed', 'surprised', 'blink', 'aa', 'ee', 'ih', 'oh', 'ou'];
-      presets.forEach((p) => {
-        vrmRef.current?.expressionManager?.setValue(p, 0);
-      });
-      if (presetName !== 'neutral') {
-        vrmRef.current.expressionManager.setValue(presetName, 1.0);
-      }
-      setActiveExpression(presetName);
-    }
+    if (!vrmRef.current?.expressionManager) return;
+    const current = getExpressionBlends(avatarParamsRef.current);
+    const isSoleActive = Object.keys(current).length === 1 && current[presetName] === 1;
+    const nextBlends: Record<string, number> =
+      presetName === 'neutral' || isSoleActive ? {} : { [presetName]: 1 };
+    const nextEditorId = EXPRESSION_EDITOR_ID[presetName];
+    const nextParams: AvatarParameters = {
+      ...avatarParamsRef.current,
+      expressionBlends: nextBlends,
+      // Keep the legacy single-choice field in sync when the preset has
+      // an editor id; presets without one (sad, relaxed, aa, …) leave it
+      // alone — the blend map is what the apply pass reads.
+      ...(nextEditorId ? { expression: nextEditorId } : {}),
+    };
+    setActiveExpression(Object.keys(nextBlends).length === 0 ? 'neutral' : presetName);
+    onAvatarParamsChange?.(nextParams);
   };
+
+  // Keep the bar's highlight in sync when expressions change from the
+  // editor (blend sliders / preset choice), not just from the bar itself.
+  useEffect(() => {
+    const blends = getExpressionBlends(avatarParams);
+    const entries = Object.entries(blends);
+    if (entries.length === 0) {
+      setActiveExpression('neutral');
+    } else {
+      entries.sort((a, b) => b[1] - a[1]);
+      setActiveExpression(entries[0][0]);
+    }
+  }, [avatarParams]);
+
+  // Camera presets: frame the model for a face close-up, a body shot, or
+  // the full character, from the live bounding box. The orbit is reset to
+  // a front view for each preset.
+  const frameCamera = useCallback((preset: 'face' | 'body' | 'full') => {
+    const targetRoot = vrmRef.current ? vrmRef.current.scene : gltfSceneRef.current;
+    if (!targetRoot) return;
+    try {
+      const box = new THREE.Box3().setFromObject(targetRoot);
+      const size = box.getSize(new THREE.Vector3());
+      if (size.y <= 0) return;
+      cameraThetaRef.current = 0.0;
+      cameraPhiRef.current = 0.08;
+      if (preset === 'face') {
+        cameraTargetRef.current.set(0, size.y * 0.88, 0);
+        cameraDistanceRef.current = Math.max(0.8, size.y * 0.55);
+      } else if (preset === 'body') {
+        cameraTargetRef.current.set(0, size.y * 0.55, 0);
+        cameraDistanceRef.current = Math.max(1.0, size.y * 1.0);
+      } else {
+        cameraTargetRef.current.set(0, size.y * 0.55, 0);
+        cameraDistanceRef.current = Math.max(2.2, size.y * 1.65);
+      }
+      updateCameraPosition();
+    } catch (err) {
+      console.warn('Frame camera warning:', err);
+    }
+  }, [updateCameraPosition]);
+
+  const toggleTurntable = useCallback(() => {
+    turntableRef.current = !turntableRef.current;
+    setTurntableOn(turntableRef.current);
+  }, []);
 
   // MULTI-TOUCH GESTURE ENGINE
   const handlePointerDown = (e: React.PointerEvent) => {
@@ -1305,6 +1414,64 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
             </button>
           )}
 
+          {modelLoaded && (
+            <>
+              <span className="text-slate-600 select-none">|</span>
+              {([
+                { id: 'face', label: 'Face' },
+                { id: 'body', label: 'Body' },
+                { id: 'full', label: 'Full' },
+              ] as const).map((preset) => (
+                <button
+                  key={preset.id}
+                  onClick={() => frameCamera(preset.id)}
+                  className="px-2 py-0.5 rounded bg-[#060b14] text-slate-300 border border-[#1e293b] hover:text-white text-[10px] transition-colors"
+                  title={`Frame camera: ${preset.label} view`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+              <button
+                onClick={toggleTurntable}
+                className={`px-2 py-0.5 rounded border text-[10px] flex items-center gap-1 transition-colors ${
+                  turntableOn
+                    ? 'bg-[#091b30] text-cyan-200 border-[#38bdf8]/60'
+                    : 'bg-[#060b14] text-slate-300 border-[#1e293b] hover:text-white'
+                }`}
+                title="Turntable: slowly rotate the camera around the model"
+              >
+                <RotateCw className="w-2.5 h-2.5 text-[#38bdf8]" />
+                <span>Turntable</span>
+              </button>
+            </>
+          )}
+
+          {modelLoaded && morphMapSummary && (
+            <button
+              onClick={() => setShowMorphMapPanel(!showMorphMapPanel)}
+              className={`px-2 py-0.5 rounded border text-[10px] flex items-center gap-1 transition-colors ${
+                showMorphMapPanel
+                  ? 'bg-[#091b30] text-cyan-200 border-[#38bdf8]/60'
+                  : 'bg-[#060b14] text-slate-300 border-[#1e293b] hover:text-white'
+              }`}
+              title="Show which editor sliders are verified on this model — and which are disabled and why"
+            >
+              <ListChecks className="w-2.5 h-2.5 text-[#38bdf8]" />
+              <span>Morph Map</span>
+            </button>
+          )}
+
+          {modelLoaded && (
+            <button
+              onClick={handleExportGlb}
+              className="px-2 py-0.5 rounded bg-[#0b1322] hover:bg-[#142138] text-slate-300 border border-[#1e293b] text-[10px] flex items-center gap-1 transition-colors font-medium"
+              title="Export the loaded, morphed model as .glb (valid glTF — NOT a .vrm; VRM data is not carried over)"
+            >
+              <Download className="w-2.5 h-2.5 text-slate-400" />
+              <span>Export .glb</span>
+            </button>
+          )}
+
           {onOpenAvatarEditor && modelLoaded && (
             <button
               onClick={onOpenAvatarEditor}
@@ -1361,6 +1528,49 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
               {exp.label}
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Verified Morph Map — which editor sliders actually work on this model */}
+      {showMorphMapPanel && modelLoaded && morphMapSummary && (
+        <div className="bg-[#050a14] border-b border-[#1e293b] px-3 py-2 text-[10px] z-10 shrink-0 max-h-44 overflow-y-auto">
+          <div className="flex items-center gap-1.5 text-slate-300 font-semibold mb-1">
+            <ListChecks className="w-3 h-3 text-[#38bdf8]" />
+            <span>
+              Morph Map — {morphMapSummary.modelName} ({morphMapSummary.modelKind})
+            </span>
+            <span className="text-slate-500 font-normal">
+              {morphMapSummary.controls.filter((c) => c.status === 'verified').length} verified /{' '}
+              {morphMapSummary.controls.filter((c) => c.status === 'unavailable').length} disabled
+            </span>
+          </div>
+          {morphMapSummary.modelNote && (
+            <p className="text-amber-300/90 leading-relaxed mb-1.5">{morphMapSummary.modelNote}</p>
+          )}
+          <div className="space-y-0.5">
+            {morphMapSummary.controls.map((c) => (
+              <div key={c.id} className="flex items-start gap-1.5 leading-relaxed">
+                <span className={c.status === 'verified' ? 'text-emerald-400 shrink-0' : 'text-slate-500 shrink-0'}>
+                  {c.status === 'verified' ? '✓' : '✕'}
+                </span>
+                <span className="text-slate-200 font-mono-code shrink-0">{c.id}</span>
+                <span className={c.status === 'verified' ? 'text-slate-400' : 'text-slate-500'}>
+                  {c.status === 'verified' ? `→ ${c.target}` : c.reason}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="text-slate-500 mt-1.5">
+            Every slider morphs only the section it names. Disabled sliders were checked against this model and have no
+            verified target — they are never bound to a wrong bone. Full log in the console ([MorphMap]).
+          </p>
+        </div>
+      )}
+
+      {/* Export status line */}
+      {exportStatus && (
+        <div className="bg-[#050a14] border-b border-[#1e293b] px-3 py-1 text-[10px] text-cyan-200 z-10 shrink-0">
+          {exportStatus}
         </div>
       )}
 
@@ -1451,6 +1661,30 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
                 <span className="px-2 py-0.5 rounded bg-[#091120] border border-[#1e293b] text-cyan-300">.VRM 0.0 / 1.0</span>
                 <span className="px-2 py-0.5 rounded bg-[#091120] border border-[#1e293b] text-cyan-300">.GLB / glTF</span>
                 <span className="px-2 py-0.5 rounded bg-[#091120] border border-[#1e293b] text-cyan-300">.OBJ</span>
+              </div>
+
+              <div className="mt-4 w-full max-w-xs">
+                <div className="text-[10px] text-slate-500 mb-1.5">Bundled models — sliders verified against these:</div>
+                <div className="flex flex-col gap-1.5">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      loadModelFromUrl('/assets/models/vessel.vrm', 'vessel.vrm');
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-[#0b1b30] hover:bg-[#122a4a] text-cyan-200 border border-cyan-500/50 text-[11px] font-semibold text-left"
+                  >
+                    Vessel — Seed-san (real VRM 1.0, fully morphable)
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      loadModelFromUrl('/assets/models/female_kunoichi.vrm', 'female_kunoichi.vrm');
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-[#0b1b30] hover:bg-[#122a4a] text-cyan-200 border border-cyan-500/50 text-[11px] font-semibold text-left"
+                  >
+                    Kunoichi — procedural parts (colors + head/bust only)
+                  </button>
+                </div>
               </div>
             </div>
 
