@@ -1305,7 +1305,13 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
             </button>
           )}
 
-          {onOpenAvatarEditor && modelLoaded && (
+          {/* Always visible when the editor is available: the Avatar
+              Morph Editor edits avatarParams and needs no loaded model.
+              It used to be gated on modelLoaded too, so whenever no model
+              was loaded (e.g. a device-storage read failed) the editor
+              had no entry point at all in the viewer. Expressions and
+              Animations below stay gated — those genuinely need a model. */}
+          {onOpenAvatarEditor && (
             <button
               onClick={onOpenAvatarEditor}
               className="px-2.5 py-0.5 rounded bg-[#091b30] hover:bg-[#0f2a4a] text-white border border-[#38bdf8]/50 text-[10px] flex items-center gap-1 transition-all font-semibold shadow-[0_0_8px_rgba(56,189,248,0.2)]"
