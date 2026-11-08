@@ -37,7 +37,8 @@ class SafStorageBridge(
 
     // JavascriptInterface calls carry no origin or auth token. Only answer
     // the bundled app page: the WebViewAssetLoader origin
-    // (https://appassets.android.com/) or, as a fallback, the legacy
+    // (MainActivity.APP_ORIGIN, derived from
+    // WebViewAssetLoader.DEFAULT_DOMAIN) or, as a fallback, the legacy
     // file:///android_asset/ origin. A remote page, or any other file://
     // page, loaded in the WebView must not reach SAF documents. This is an
     // origin check, not a cryptographic token, and SAF itself still only
@@ -45,7 +46,7 @@ class SafStorageBridge(
     private fun isTrustedOrigin(): Boolean {
         val url = try { webView.url } catch (e: Exception) { null }
         return url != null && (url.startsWith("file:///android_asset/")
-                || url.startsWith("https://appassets.android.com/"))
+                || url.startsWith(MainActivity.APP_ORIGIN))
     }
 
     private fun checkTrusted(): Boolean {

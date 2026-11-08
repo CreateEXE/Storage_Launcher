@@ -56,8 +56,16 @@ public class MainActivity extends AppCompatActivity {
     // The bundled app is served over a real local HTTPS origin instead of
     // file:// (see assetLoader below). The bridges trust exactly this
     // origin, plus the legacy file:///android_asset/ origin as a fallback.
-    private static final String APP_ORIGIN = "https://appassets.android.com/";
-    private static final String APP_URL = "https://appassets.android.com/public/index.html";
+    // The origin is DERIVED from WebViewAssetLoader.DEFAULT_DOMAIN
+    // (appassets.androidplatform.net) and must never be hardcoded:
+    // hardcoding appassets.android.com broke every launch — the loader's
+    // PathMatcher only intercepts its own domain, the .com request fell
+    // through to real DNS (both domains are NXDOMAIN), and the app showed
+    // "failed to start / ERR_NAME_NOT_RESOLVED". Deriving it here makes
+    // that mismatch impossible by construction. Package-visible so
+    // SafStorageBridge trusts exactly the same origin.
+    static final String APP_ORIGIN = "https://" + WebViewAssetLoader.DEFAULT_DOMAIN + "/";
+    private static final String APP_URL = APP_ORIGIN + "public/index.html";
 
     // JavascriptInterface calls carry no origin or auth token in the Android
     // API. The only check available here is the page currently loaded in
@@ -372,6 +380,13 @@ public class MainActivity extends AppCompatActivity {
         if (webView == null || loadErrorShown) return;
         loadErrorShown = true;
         String safeDetail = detail == null ? "" : detail.replace("<", "&lt;").replace(">", "&gt;");
+        // A net::ERR_* on the bundled app URL can never be a real network
+        // problem: the page is served locally by WebViewAssetLoader, so
+        // ERR_NAME_NOT_RESOLVED / ERR_CONNECTION_REFUSED means the loader
+        // did not intercept the request (e.g. a domain mismatch) — not
+        // the user's internet connection. Say so on the page.
+        boolean localAssetFailure = safeDetail.contains("ERR_NAME_NOT_RESOLVED")
+                || safeDetail.contains("ERR_CONNECTION_REFUSED");
         String html = "<!doctype html><html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
                 + "<style>body{background:#03060c;color:#e2e8f0;font-family:sans-serif;margin:0;"
                 + "display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center}"
@@ -380,7 +395,10 @@ public class MainActivity extends AppCompatActivity {
                 + "<h2>Savage Storage failed to start</h2>"
                 + "<p>The app page could not be loaded.</p>"
                 + "<p style=\"color:#94a3b8;font-size:13px\">" + safeDetail + "</p>"
-                + "<button onclick=\"location.href='https://appassets.android.com/public/index.html'\">Retry</button>"
+                + (localAssetFailure
+                        ? "<p style=\"color:#fbbf24;font-size:13px\">The app's built-in page server did not answer. This is not your internet connection — the app's own files failed to load.</p>"
+                        : "")
+                + "<button onclick=\"location.href='" + APP_URL + "'\">Retry</button>"
                 + "</div></body></html>";
         webView.loadDataWithBaseURL(APP_ORIGIN, html, "text/html", "UTF-8", null);
     }
@@ -415,7 +433,8 @@ public class MainActivity extends AppCompatActivity {
             }
 
             // Serve the bundled app over a real local HTTPS origin
-            // (https://appassets.android.com/) instead of file://.
+            // (https://appassets.androidplatform.net/, i.e. APP_ORIGIN)
+            // instead of file://.
             // Why: Vite emits the app as ES modules with a `crossorigin`
             // attribute, and module scripts are always CORS-checked. From
             // file:// the page has an opaque origin and the bundled files
@@ -436,6 +455,13 @@ public class MainActivity extends AppCompatActivity {
                     .setDomain(WebViewAssetLoader.DEFAULT_DOMAIN)
                     .addPathHandler("/", new WebViewAssetLoader.AssetsPathHandler(this))
                     .build();
+            // Regression guard: APP_URL is derived from DEFAULT_DOMAIN
+            // above, so the loader must intercept it. Log both so a future
+            // domain mismatch is visible in logcat instead of surfacing as
+            // a bare ERR_NAME_NOT_RESOLVED on the error page.
+            Log.i(TAG, "Serving bundled app from " + APP_URL
+                    + " via WebViewAssetLoader domain "
+                    + WebViewAssetLoader.DEFAULT_DOMAIN);
 
             // Expose Native Android Storage & SAF Kotlin Bridges
             safStorageBridge = new SafStorageBridge(this, webView);

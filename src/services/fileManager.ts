@@ -405,7 +405,7 @@ export class FileManagerService {
   public readFileContent(filePath: string, isBinary: boolean = false): string {
     // Binary reads ALWAYS return the file's bytes as a data: URL — never a
     // raw content:// or file:// path string. The WebView page
-    // (https://appassets.android.com) cannot fetch content:// or file://
+    // (https://appassets.androidplatform.net) cannot fetch content:// or file://
     // URLs, and every binary consumer (Viewer3D's data:/blob: gate,
     // normalizeModelFileForViewer, bulk copy/move, downloadFile) treats a
     // path string as unreadable data. Previously this method returned
