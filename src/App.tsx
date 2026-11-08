@@ -453,7 +453,7 @@ export default function App() {
   const formatWindowTitle = (type: WindowType, file?: FileItem): string => {
     switch (type) {
       case 'file_explorer':
-        return 'Savage Storage: /storage/emulated/0';
+        return 'Oni\'s Storage Launcher: /storage/emulated/0';
       case 'viewer_3d':
         return `3D Viewer: ${file?.name || 'Load Avatar'}`;
       case 'avatar_editor':
@@ -657,7 +657,7 @@ export default function App() {
         isLandscapeLocked ? 'rotate-0 overflow-x-auto min-w-[760px]' : ''
       }`}
     >
-      {/* Top Header Bar: Savage Storage by Oni Song */}
+      {/* Top Header Bar: Oni's Storage Launcher by Oni Song */}
       <TopBar
         sessionTabs={sessionTabs}
         activeSessionTab={activeSessionTab}
@@ -879,7 +879,7 @@ export default function App() {
         })}
       </main>
 
-      {/* Running Windows Taskbar with Savage Start Menu */}
+      {/* Running Windows Taskbar with Oni's Storage Launcher Start Menu */}
       <WindowTaskbar
         windows={windows}
         activeWindowId={activeWindowId}
