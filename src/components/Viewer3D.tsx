@@ -389,18 +389,27 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
   // Helper to re-apply skeletal morphs on raw bone nodes safely.
   //
   // Bone scales compound down the hierarchy: scaling a parent bone scales
-  // everything parented under it. The old code scaled chest for bust and
-  // spine for waist, so bust also grew the head and waist grew the whole
-  // upper body. Each region is now isolated by counter-scaling its
-  // children, so every region's WORLD scale is exactly its slider value:
-  //   hips  world (hip, 1, hip)        — local (hip, 1, hip)
-  //   spine world (waist, 1, waist)    — local (waist/hip, 1, waist/hip)
-  //   chest world (shoulder, 1, bust)  — local (shoulder/waist, 1, bust/waist)
-  //   head  world (head, head, head)   — local (head/shoulder, head, head/bust)
-  //   upperArm world (arm, 1, arm)     — local (arm/shoulder, 1, arm/bust)
-  //   lowerArm untouched (identity) so the forearm inherits exactly arm.
-  // Chain verified against Vessel: hips -> spine -> chest -> upperChest
-  // -> neck -> head; shoulders hang off upperChest; legs off hips.
+  // everything parented under it. Every region is isolated by
+  // counter-scaling its children, so each region's WORLD scale is exactly
+  // the product of the sliders that name it — nothing else leaks in:
+  //   hips      world (hip, 1, hip)
+  //   spine     world (waist, 1, waist * stomach)
+  //   chest     world (shoulder * chestD, 1, bust * chestD)
+  //   head      world (head, head, head)
+  //   shoulder  world (shoulder * chestD * shoulderD, 1, bust * chestD * shoulderD)
+  //   upperArm  world (arm, 1, arm)
+  //   lowerArm  world (arm * forearm, 1, arm * forearm)
+  //   hand      world (arm * forearm * hand, 1, arm * forearm * hand)
+  //   fingers   world (arm * forearm * hand * finger, 1, same)
+  //   upperLeg  world (hip * thigh, legLen, hip * thigh)
+  //   lowerLeg  world (hip * thigh * shin, legLen, same)
+  //   foot      world (hip * thigh * shin * foot, legLen, same)
+  //   toes      world (hip * thigh * shin * foot * toe, legLen, same)
+  // Each bone's LOCAL scale is its world target divided by its parent's
+  // world scale on the same axis. Chain verified against Vessel: hips ->
+  // spine -> chest -> upperChest -> neck -> head; shoulders hang off
+  // upperChest; legs off hips; fingers are hand -> proximal -> intermediate
+  // -> distal (thumb: hand -> metacarpal -> proximal -> distal).
   // Residual honest limit: bust still scales the whole chest region's
   // depth (the torso has no bust-only morph target on this model) — but
   // it no longer touches the head, arms, or legs.
@@ -432,45 +441,114 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
       const waist = params.waistWidth;
       const shoulder = params.shoulderWidth;
       const bust = params.bustSize;
+      const chestD = params.chestDetail;
+      const stomach = params.stomachDetail;
+      const shoulderD = params.shoulderDetail;
+      const arm = params.armThickness;
+      const forearm = params.forearmDetail;
+      const hand = params.handDetail;
+      const finger = params.fingerDetail;
+      const thigh = params.thighDetail;
+      const shin = params.shinDetail;
+      const foot = params.footDetail;
+      const toe = params.toeDetail;
+
+      // World targets for the torso chain, for readability below.
+      const chestWorldX = shoulder * chestD;
+      const chestWorldZ = bust * chestD;
+      const spineWorldZ = waist * stomach;
 
       const hipsNode = getBoneNode('hips');
       if (hipsNode && hipsNode.scale) hipsNode.scale.set(hip, 1, hip);
 
       const spineNode = getBoneNode('spine');
-      if (spineNode && spineNode.scale) spineNode.scale.set(waist / div(hip), 1, waist / div(hip));
+      if (spineNode && spineNode.scale) {
+        spineNode.scale.set(waist / div(hip), 1, spineWorldZ / div(hip));
+      }
 
       const chestNode = getBoneNode('chest') || getBoneNode('upperChest');
       if (chestNode && chestNode.scale) {
-        chestNode.scale.set(shoulder / div(waist), 1, bust / div(waist));
+        chestNode.scale.set(chestWorldX / div(waist), 1, chestWorldZ / div(spineWorldZ));
       }
 
       const headNode = getBoneNode('head');
       if (headNode && headNode.scale) {
         headNode.scale.set(
-          params.headScale / div(shoulder),
+          params.headScale / div(chestWorldX),
           params.headScale,
-          params.headScale / div(bust)
+          params.headScale / div(chestWorldZ)
         );
       }
 
-      const leftLeg = getBoneNode('leftUpperLeg');
-      const rightLeg = getBoneNode('rightUpperLeg');
-      if (leftLeg && leftLeg.scale) leftLeg.scale.y = params.legLength;
-      if (rightLeg && rightLeg.scale) rightLeg.scale.y = params.legLength;
+      // Shoulder caps: the shoulder bones carry the detailed shoulder
+      // multiplier; the upper arms are counter-scaled so arm thickness
+      // stays exactly the arm slider's value.
+      (['leftShoulder', 'rightShoulder'] as const).forEach((name) => {
+        const node = getBoneNode(name);
+        if (node && node.scale) node.scale.set(shoulderD, 1, shoulderD);
+      });
 
-      // Arm thickness: widen the upper arm bones only (X/Z — Y is the bone
-      // length). The lower arms stay identity so the forearms inherit
-      // exactly the upper arm's world scale instead of compounding it.
       const upperArmBones = ['leftUpperArm', 'rightUpperArm'];
       upperArmBones.forEach((name) => {
         const node = getBoneNode(name);
         if (node && node.scale) {
           node.scale.set(
-            params.armThickness / div(shoulder),
+            arm / div(chestWorldX * shoulderD),
             1,
-            params.armThickness / div(bust)
+            arm / div(chestWorldZ * shoulderD)
           );
         }
+      });
+
+      // Forearm: the lower arm bones carry the detailed forearm
+      // multiplier; the hands are counter-scaled in the next step.
+      (['leftLowerArm', 'rightLowerArm'] as const).forEach((name) => {
+        const node = getBoneNode(name);
+        if (node && node.scale) node.scale.set(forearm, 1, forearm);
+      });
+
+      (['leftHand', 'rightHand'] as const).forEach((name) => {
+        const node = getBoneNode(name);
+        if (node && node.scale) node.scale.set(hand, 1, hand);
+      });
+
+      // Fingers: only the first segment of each finger chain carries the
+      // multiplier (index/middle/ring/little proximal, thumb metacarpal);
+      // the later segments stay identity so the whole finger is uniformly
+      // thicker instead of compounding to finger^3 at the tip.
+      const fingerFirstSegments = [
+        'leftThumbMetacarpal', 'rightThumbMetacarpal',
+        'leftIndexProximal', 'rightIndexProximal',
+        'leftMiddleProximal', 'rightMiddleProximal',
+        'leftRingProximal', 'rightRingProximal',
+        'leftLittleProximal', 'rightLittleProximal'
+      ];
+      fingerFirstSegments.forEach((name) => {
+        const node = getBoneNode(name);
+        if (node && node.scale) node.scale.set(finger, 1, finger);
+      });
+
+      // Legs: thigh width on the upper legs, shin width on the lower legs,
+      // foot width on the feet, toe width on the toes. Y stays the leg
+      // length all the way down (inherited), so the feet stay planted.
+      (['leftUpperLeg', 'rightUpperLeg'] as const).forEach((name) => {
+        const node = getBoneNode(name);
+        if (node && node.scale) node.scale.set(thigh, params.legLength, thigh);
+      });
+
+      (['leftLowerLeg', 'rightLowerLeg'] as const).forEach((name) => {
+        const node = getBoneNode(name);
+        if (node && node.scale) node.scale.set(shin, 1, shin);
+      });
+
+      (['leftFoot', 'rightFoot'] as const).forEach((name) => {
+        const node = getBoneNode(name);
+        if (node && node.scale) node.scale.set(foot, 1, foot);
+      });
+
+      (['leftToes', 'rightToes'] as const).forEach((name) => {
+        const node = getBoneNode(name);
+        if (node && node.scale) node.scale.set(toe, 1, toe);
       });
     } catch (err) {
       console.warn('Skeletal morph warning:', err);
