@@ -73,13 +73,26 @@ export class FileManagerService {
     // Load initial fallback state immediately
     this.load();
 
-    // If native storage exists, perform one background sync without blocking constructor
-    if (this.isSafActive() && window.SafStorage) {
-      this.currentNativeDirPath = window.SafStorage.getPersistedUriString();
-      setTimeout(() => this.syncFromNativeStorage(this.currentNativeDirPath, true), 10);
-    } else if (this.isNativeStorageAvailable && window.AndroidStorage) {
-      this.currentNativeDirPath = window.AndroidStorage.getStorageRootPath();
-      setTimeout(() => this.syncFromNativeStorage(this.currentNativeDirPath, true), 10);
+    // If native storage exists, perform one background sync without blocking constructor.
+    // Bridge calls can throw (e.g. a Java exception escaping a
+    // @JavascriptInterface method) — that must never propagate out of
+    // this constructor: it runs during the first render, so an uncaught
+    // throw lands the whole app on the SYSTEM RECOVERY SHIELD instead of
+    // the desktop. A failed root lookup just leaves
+    // currentNativeDirPath empty; the sync below and getNativeRootPath()
+    // fall back to the default external-storage path, and the user can
+    // still grant folder access from File Explorer's "Grant Permissions".
+    try {
+      if (this.isSafActive() && window.SafStorage) {
+        this.currentNativeDirPath = window.SafStorage.getPersistedUriString();
+        setTimeout(() => this.syncFromNativeStorage(this.currentNativeDirPath, true), 10);
+      } else if (this.isNativeStorageAvailable && window.AndroidStorage) {
+        this.currentNativeDirPath = window.AndroidStorage.getStorageRootPath();
+        setTimeout(() => this.syncFromNativeStorage(this.currentNativeDirPath, true), 10);
+      }
+    } catch (e) {
+      console.warn('Native storage root lookup failed at startup, continuing without it:', e);
+      this.currentNativeDirPath = '';
     }
   }
 
@@ -95,7 +108,14 @@ export class FileManagerService {
   }
 
   public isSafActive(): boolean {
-    return typeof window !== 'undefined' && !!window.SafStorage && window.SafStorage.hasPersistedPermission();
+    // Guarded: this is called from the constructor and from every
+    // storage path, so a bridge throw here must not take the app down.
+    try {
+      return typeof window !== 'undefined' && !!window.SafStorage && window.SafStorage.hasPersistedPermission();
+    } catch (e) {
+      console.warn('SAF permission check failed, treating SAF as inactive:', e);
+      return false;
+    }
   }
 
   public openSafPicker(): void {
@@ -107,11 +127,15 @@ export class FileManagerService {
   }
 
   public getNativeRootPath(): string {
-    if (this.isSafActive() && window.SafStorage) {
-      return window.SafStorage.getPersistedUriString();
-    }
-    if (this.isNativeStorageAvailable && window.AndroidStorage) {
-      return window.AndroidStorage.getStorageRootPath();
+    try {
+      if (this.isSafActive() && window.SafStorage) {
+        return window.SafStorage.getPersistedUriString();
+      }
+      if (this.isNativeStorageAvailable && window.AndroidStorage) {
+        return window.AndroidStorage.getStorageRootPath();
+      }
+    } catch (e) {
+      console.warn('Native root path lookup failed, using default external-storage path:', e);
     }
     return '/storage/emulated/0';
   }
