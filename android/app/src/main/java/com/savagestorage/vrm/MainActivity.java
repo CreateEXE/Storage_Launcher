@@ -437,7 +437,7 @@ public class MainActivity extends AppCompatActivity {
                 + "display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center}"
                 + "button{background:#0891b2;color:#fff;border:0;border-radius:8px;padding:12px 24px;"
                 + "font-size:16px;margin-top:16px}</style></head><body><div>"
-                + "<h2>Savage Storage failed to start</h2>"
+                + "<h2>Oni's Storage Launcher failed to start</h2>"
                 + "<p>The app page could not be loaded.</p>"
                 + "<p style=\"color:#94a3b8;font-size:13px\">" + safeDetail + "</p>"
                 + (localAssetFailure

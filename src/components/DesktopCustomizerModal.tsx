@@ -88,7 +88,7 @@ export const DesktopCustomizerModal: React.FC<DesktopCustomizerModalProps> = ({
               <Sliders className="w-3.5 h-3.5" />
             </div>
             <div>
-              <div className="font-semibold text-slate-100 text-xs">Savage Customizer</div>
+              <div className="font-semibold text-slate-100 text-xs">Oni's Customizer</div>
               <div className="text-[10px] text-slate-400">Desktop personalization & phone layout</div>
             </div>
           </div>

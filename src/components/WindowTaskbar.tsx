@@ -283,7 +283,7 @@ export const WindowTaskbar: React.FC<WindowTaskbarProps> = ({
 
   return (
     <div className="relative z-40 select-none text-xs shrink-0">
-      {/* PC Savage Start Menu Popup with Predictive Search */}
+      {/* Oni's Storage Launcher Start Menu Popup with Predictive Search */}
       {isStartOpen && (
         <div
           ref={startMenuRef}
@@ -297,7 +297,7 @@ export const WindowTaskbar: React.FC<WindowTaskbarProps> = ({
               </div>
               <div>
                 <div className="font-extrabold text-slate-100 text-xs leading-tight tracking-wider uppercase flex items-center gap-1.5">
-                  <span className="bg-gradient-to-r from-purple-300 via-purple-100 to-emerald-400 bg-clip-text text-transparent">Savage PC OS</span>
+                  <span className="bg-gradient-to-r from-purple-300 via-purple-100 to-emerald-400 bg-clip-text text-transparent">Oni's Storage Launcher</span>
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 </div>
                 <div className="text-[9px] text-purple-300 font-mono-code">
@@ -392,7 +392,7 @@ export const WindowTaskbar: React.FC<WindowTaskbarProps> = ({
               <Settings className="w-3.5 h-3.5 text-cyan-400" />
               <span>System Settings</span>
             </button>
-            <span className="text-[9px] font-mono-code text-cyan-400/80">Savage PC Engine v2.5</span>
+            <span className="text-[9px] font-mono-code text-cyan-400/80">Oni's Storage Launcher v2.5</span>
           </div>
         </div>
       )}
@@ -407,7 +407,7 @@ export const WindowTaskbar: React.FC<WindowTaskbarProps> = ({
               ? 'bg-[#1b0d33] text-purple-200 border-purple-400 shadow-[0_0_18px_rgba(168,85,247,0.5)] scale-102'
               : 'bg-[#0b0615] text-slate-100 border-purple-900/50 hover:border-purple-400/80 hover:bg-[#160a2c] hover:shadow-[0_0_16px_rgba(168,85,247,0.4)]'
           }`}
-          title="Savage PC Start Menu (Oni Fox Launcher)"
+          title="Oni's Storage Launcher Start Menu"
         >
           <div className="transition-transform group-hover:scale-110 drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]">
             <OniFoxLogoMark className="w-4 h-4" />

@@ -60,7 +60,7 @@ class GlobalSystemErrorBoundary extends Component<Props, State> {
                 System Recovery Shield
               </h2>
               <div className="text-[10px] text-cyan-400 font-mono-code mt-0.5">
-                Savage OS 2026 Process Exception Intercepted
+                Oni's Storage Launcher 2026 Process Exception Intercepted
               </div>
             </div>
 

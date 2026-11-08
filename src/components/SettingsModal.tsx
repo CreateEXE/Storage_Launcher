@@ -87,7 +87,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <Sliders className="w-3.5 h-3.5" />
             </div>
             <div>
-              <span className="font-bold text-slate-100 text-xs">Savage Storage Settings</span>
+              <span className="font-bold text-slate-100 text-xs">Oni's Storage Launcher Settings</span>
               <span className="text-[9px] text-cyan-400 ml-1.5 font-medium">by Oni Song</span>
             </div>
           </div>
@@ -187,7 +187,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = `SavageOS_Backup_${Date.now()}.json`;
+                    a.download = `OnisStorageLauncher_Backup_${Date.now()}.json`;
                     a.click();
                     URL.revokeObjectURL(url);
                     showToast('Backup JSON exported successfully!');
@@ -303,10 +303,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           )}
 
-          {/* ABOUT SAVAGE STORAGE & 7-TAP EASTER EGG */}
+          {/* ABOUT ONI'S STORAGE LAUNCHER & 7-TAP EASTER EGG */}
           <div className="p-2.5 rounded-lg bg-[#070c16] border border-[#172a45] space-y-1.5">
             <div className="text-slate-300 font-semibold text-[11px] flex items-center justify-between">
-              <span>About Savage Storage</span>
+              <span>About Oni's Storage Launcher</span>
               <span className="text-[9px] text-slate-500 font-mono-code">v2.4.0</span>
             </div>
 
@@ -326,7 +326,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   Build Number
                 </span>
                 <span className="font-mono-code text-[9px] text-slate-500">
-                  SavageOS-2.4.0-REL.Dimensity6300.2025
+                  OniOS-2.4.0-REL.Dimensity6300.2025
                 </span>
               </div>
               <div className="text-slate-500 group-hover:text-cyan-400">
