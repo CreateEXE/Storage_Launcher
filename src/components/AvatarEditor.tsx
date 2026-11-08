@@ -9,6 +9,7 @@ import {
   Download,
   Dices,
   Check,
+  ChevronDown,
   Layers,
   Undo2,
   Redo2
@@ -24,6 +25,86 @@ interface AvatarEditorProps {
   onOpenColorPicker?: (targetProp: keyof AvatarParameters, targetLabel: string) => void;
 }
 
+// Precise slider: range input plus a numeric input showing the exact
+// value. The number input commits on blur/Enter (clamped, NaN-safe) and
+// remounts when the value changes elsewhere (preset/randomize/reset).
+const PreciseSlider: React.FC<{
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  onCommit: (v: number) => void;
+}> = ({ label, value, min, max, onCommit }) => {
+  const commit = (raw: string) => {
+    const parsed = parseFloat(raw);
+    if (Number.isNaN(parsed)) return;
+    const clamped = Math.min(max, Math.max(min, Math.round(parsed * 100) / 100));
+    onCommit(clamped);
+  };
+  return (
+    <div className="space-y-1">
+      <div className="flex justify-between text-[10px] text-slate-400">
+        <span>{label}</span>
+        <span className="font-mono-code text-slate-200">{value.toFixed(2)}x</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={0.01}
+          value={value}
+          onChange={(e) => onCommit(parseFloat(e.target.value))}
+          className="flex-1 h-1.5 bg-[#172a45] rounded-lg appearance-none cursor-pointer accent-[#38bdf8]"
+        />
+        <input
+          type="number"
+          min={min}
+          max={max}
+          step={0.01}
+          key={`${label}-${value}`}
+          defaultValue={value.toFixed(2)}
+          onBlur={(e) => {
+            commit(e.target.value);
+            e.target.value = value.toFixed(2);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+          }}
+          className="w-14 shrink-0 bg-[#060a12] border border-[#172a45] rounded px-1 py-0.5 text-[10px] text-slate-200 font-mono-code outline-none focus:border-[#38bdf8]"
+        />
+      </div>
+    </div>
+  );
+};
+
+// One collapsible group inside Detailed proportions.
+const DetailGroup: React.FC<{
+  title: string;
+  open: boolean;
+  onToggle: () => void;
+  note?: string;
+  children: React.ReactNode;
+}> = ({ title, open, onToggle, note, children }) => (
+  <div className="rounded border border-[#172a45] bg-[#0b1220] overflow-hidden">
+    <button
+      onClick={onToggle}
+      className="w-full flex items-center justify-between px-2 py-1.5 text-[11px] font-semibold text-slate-200 hover:bg-[#101a2e] transition-colors"
+    >
+      <span>{title}</span>
+      <ChevronDown
+        className={`w-3.5 h-3.5 text-[#38bdf8] transition-transform ${open ? 'rotate-180' : ''}`}
+      />
+    </button>
+    {open && (
+      <div className="px-2 pb-2 pt-1 space-y-2 border-t border-[#172a45]">
+        {note && <div className="text-[9px] text-slate-500 leading-tight">{note}</div>}
+        {children}
+      </div>
+    )}
+  </div>
+);
+
 export const AvatarEditor: React.FC<AvatarEditorProps> = ({
   params,
   onChange,
@@ -34,6 +115,12 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
   const [activeCategory, setActiveCategory] = useState<'body' | 'face' | 'colors' | 'presets'>('body');
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveName, setSaveName] = useState('Vessel_custom.vrm');
+
+  // Detailed proportions collapsibles (Body tab).
+  const [showDetailed, setShowDetailed] = useState(true);
+  const [detailGroupsOpen, setDetailGroupsOpen] = useState({ torso: true, arms: false, legs: false });
+  const toggleDetailGroup = (group: keyof typeof detailGroupsOpen) =>
+    setDetailGroupsOpen((prev) => ({ ...prev, [group]: !prev[group] }));
 
   // Undo / Redo Stacks
   const [undoStack, setUndoStack] = useState<AvatarParameters[]>([]);
@@ -109,6 +196,16 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
       legLength: randomRange(0.85, 1.25),
       armThickness: randomRange(0.85, 1.2),
       weight: randomRange(0.9, 1.2),
+      chestDetail: randomRange(0.92, 1.12),
+      stomachDetail: randomRange(0.92, 1.12),
+      shoulderDetail: randomRange(0.92, 1.12),
+      forearmDetail: randomRange(0.92, 1.12),
+      handDetail: randomRange(0.92, 1.12),
+      fingerDetail: randomRange(0.92, 1.12),
+      thighDetail: randomRange(0.92, 1.12),
+      shinDetail: randomRange(0.92, 1.12),
+      footDetail: randomRange(0.92, 1.12),
+      toeDetail: randomRange(0.92, 1.12),
 
       skinColor: randomItem(skinPresets),
       hairColor: randomItem(hairPresets),
@@ -342,6 +439,60 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
                 />
               </div>
             ))}
+
+            {/* DETAILED PROPORTIONS — per-part sliders, each driving only
+                its own region (same counter-scale discipline as above).
+                Parts with no real bone on this model are left out entirely:
+                no ass slider (no buttocks bone), no wrist slider (no wrist
+                bone), no knee slider (no knee bone), no ankle slider (no
+                ankle bone). Waist, hips and pelvis are the main Waist/Hip
+                sliders above, not repeated here; lower arm is the forearm. */}
+            <div className="pt-2 border-t border-[#172a45]">
+              <button
+                onClick={() => setShowDetailed((v) => !v)}
+                className="w-full flex items-center justify-between py-1 text-[11px] font-semibold text-slate-300"
+              >
+                <span>Detailed proportions</span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-[#38bdf8] transition-transform ${showDetailed ? 'rotate-180' : ''}`}
+                />
+              </button>
+              {showDetailed && (
+                <div className="space-y-2 pt-1">
+                  <DetailGroup
+                    title="Torso"
+                    open={detailGroupsOpen.torso}
+                    onToggle={() => toggleDetailGroup('torso')}
+                    note="Waist, hips and pelvis are the main Waist Width / Hip Width sliders above."
+                  >
+                    <PreciseSlider label="Shoulders" value={params.shoulderDetail} min={0.8} max={1.3} onCommit={(v) => updateParam('shoulderDetail', v)} />
+                    <PreciseSlider label="Chest" value={params.chestDetail} min={0.8} max={1.3} onCommit={(v) => updateParam('chestDetail', v)} />
+                    <PreciseSlider label="Stomach" value={params.stomachDetail} min={0.8} max={1.3} onCommit={(v) => updateParam('stomachDetail', v)} />
+                  </DetailGroup>
+                  <DetailGroup
+                    title="Arms"
+                    open={detailGroupsOpen.arms}
+                    onToggle={() => toggleDetailGroup('arms')}
+                    note="Forearm is the lower arm — one slider, not two."
+                  >
+                    <PreciseSlider label="Forearm" value={params.forearmDetail} min={0.8} max={1.3} onCommit={(v) => updateParam('forearmDetail', v)} />
+                    <PreciseSlider label="Hand" value={params.handDetail} min={0.8} max={1.3} onCommit={(v) => updateParam('handDetail', v)} />
+                    <PreciseSlider label="Fingers" value={params.fingerDetail} min={0.8} max={1.3} onCommit={(v) => updateParam('fingerDetail', v)} />
+                  </DetailGroup>
+                  <DetailGroup
+                    title="Legs"
+                    open={detailGroupsOpen.legs}
+                    onToggle={() => toggleDetailGroup('legs')}
+                    note="Knee and ankle have no bones on this model, so there is no slider for them."
+                  >
+                    <PreciseSlider label="Thigh" value={params.thighDetail} min={0.8} max={1.3} onCommit={(v) => updateParam('thighDetail', v)} />
+                    <PreciseSlider label="Shin" value={params.shinDetail} min={0.8} max={1.3} onCommit={(v) => updateParam('shinDetail', v)} />
+                    <PreciseSlider label="Foot" value={params.footDetail} min={0.8} max={1.3} onCommit={(v) => updateParam('footDetail', v)} />
+                    <PreciseSlider label="Toes" value={params.toeDetail} min={0.8} max={1.3} onCommit={(v) => updateParam('toeDetail', v)} />
+                  </DetailGroup>
+                </div>
+              )}
+            </div>
           </div>
         )}
 

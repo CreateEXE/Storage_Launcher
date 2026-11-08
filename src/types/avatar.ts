@@ -11,6 +11,22 @@ export interface AvatarParameters {
   armThickness: number;    // 0.8 to 1.3 — upper/lower arm width only
   weight: number;          // 0.8 to 1.4 — mesh deformation only, skeleton untouched (1.0 = original mesh)
 
+  // Detailed proportions — each multiplies only its own region (default
+  // 1.0, counter-scaled like the main sliders so the change never ripples
+  // into neighbouring regions). Parts with no real bone on this model
+  // (ass, wrist, knee, ankle) have no slider at all. Waist, hips and
+  // pelvis are covered by the main waist/hip sliders, not repeated here.
+  chestDetail: number;     // 0.8 to 1.3 — whole chest (width + depth together)
+  stomachDetail: number;   // 0.8 to 1.3 — belly protrusion (spine depth only)
+  shoulderDetail: number;  // 0.8 to 1.3 — shoulder caps (shoulder bones)
+  forearmDetail: number;   // 0.8 to 1.3 — forearm (lower arm bones)
+  handDetail: number;      // 0.8 to 1.3 — hand (hand bones)
+  fingerDetail: number;    // 0.8 to 1.3 — fingers (first segment of each finger)
+  thighDetail: number;     // 0.8 to 1.3 — thigh (upper leg width)
+  shinDetail: number;      // 0.8 to 1.3 — shin (lower leg width)
+  footDetail: number;      // 0.8 to 1.3 — foot (foot bones)
+  toeDetail: number;       // 0.8 to 1.3 — toes (toe bones)
+
   // Colors — each one recolours a real material on the loaded model.
   // Coat/inner/boots/neon colors were removed: no material on the model
   // matches them, so they did nothing. Hair highlight was never read.
@@ -32,6 +48,16 @@ export const DEFAULT_AVATAR_PARAMS: AvatarParameters = {
   legLength: 1.0,
   armThickness: 1.0,
   weight: 1.0,
+  chestDetail: 1.0,
+  stomachDetail: 1.0,
+  shoulderDetail: 1.0,
+  forearmDetail: 1.0,
+  handDetail: 1.0,
+  fingerDetail: 1.0,
+  thighDetail: 1.0,
+  shinDetail: 1.0,
+  footDetail: 1.0,
+  toeDetail: 1.0,
 
   skinColor: '#ffe0bd',
   hairColor: '#6bb5f8',
