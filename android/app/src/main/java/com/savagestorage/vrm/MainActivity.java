@@ -543,11 +543,31 @@ public class MainActivity extends AppCompatActivity {
                     }
                     uploadMessage = filePathCallback;
 
-                    Intent intent = fileChooserParams.createIntent();
+                    // Build the picker intent explicitly. Do NOT use
+                    // fileChooserParams.createIntent(): it bakes the web
+                    // page's accept list (.vrm,.glb,.gltf,.obj,.json) into
+                    // EXTRA_MIME_TYPES, and .vrm/.glb/.obj have no registered
+                    // Android MIME type, so document providers greyed out
+                    // every 3D file. setType("*/*") does not clear those
+                    // extras, so the previous code filtered them out even
+                    // after "fixing" the type. A bare */* type with no
+                    // EXTRA_MIME_TYPES lets every file be selected; the web
+                    // input's accept attribute still guides the user
+                    // in-page, and the loader validates the extension.
+                    Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
                     intent.addCategory(Intent.CATEGORY_OPENABLE);
                     intent.setType("*/*");
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    if (fileChooserParams.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE) {
+                        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+                    }
 
                     try {
+                        // Kept on startActivityForResult deliberately: the
+                        // SAF bridge shares this Activity's onActivityResult
+                        // dispatch (see onActivityResult below), and moving
+                        // to the Activity Result API would re-plumb that
+                        // shared flow for no user-facing gain.
                         startActivityForResult(intent, FILECHOOSER_RESULTCODE);
                     } catch (ActivityNotFoundException e) {
                         uploadMessage = null;
