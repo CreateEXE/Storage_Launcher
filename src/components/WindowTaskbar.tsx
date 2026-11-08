@@ -27,6 +27,7 @@ interface WindowTaskbarProps {
   onCloseAllWindows: () => void;
   onOpenStorage: () => void;
   onOpen3DViewer: () => void;
+  onOpenAvatarEditor: () => void;
   onOpenInspector: () => void;
   onOpenTerminal: () => void;
   onOpenCustomizer: () => void;
@@ -119,6 +120,7 @@ export const WindowTaskbar: React.FC<WindowTaskbarProps> = ({
   onCloseAllWindows,
   onOpenStorage,
   onOpen3DViewer,
+  onOpenAvatarEditor,
   onOpenInspector,
   onOpenTerminal,
   onOpenCustomizer,
@@ -172,6 +174,15 @@ export const WindowTaskbar: React.FC<WindowTaskbarProps> = ({
       icon: BoxSelect,
       iconColor: 'text-cyan-400',
       action: onOpen3DViewer
+    },
+    {
+      id: 'app_avatar_editor',
+      title: 'Avatar Morph Editor',
+      category: 'APP',
+      keywords: 'avatar morph editor sliders customize vrm character proportions face',
+      icon: Sparkles,
+      iconColor: 'text-cyan-300',
+      action: onOpenAvatarEditor
     },
     {
       id: 'app_inspector',

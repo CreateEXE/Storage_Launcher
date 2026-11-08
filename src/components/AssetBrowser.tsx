@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   Shirt,
   Scissors,
-  Headphones,
   Sparkles,
   Check,
   Search,
@@ -24,7 +23,7 @@ interface AssetBrowserProps {
 interface AssetDef {
   id: string;
   name: string;
-  category: 'outfit' | 'accessory' | 'hairstyle' | 'palette';
+  category: 'outfit' | 'hairstyle' | 'palette';
   description: string;
   tags: string[];
   rarity: 'Common' | 'Rare' | 'Legendary' | 'Cyber';
@@ -38,7 +37,7 @@ export const AssetBrowser: React.FC<AssetBrowserProps> = ({
   onChange,
   onClose
 }) => {
-  const [activeTab, setActiveTab] = useState<'all' | 'outfit' | 'accessory' | 'hairstyle' | 'palette'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'outfit' | 'hairstyle' | 'palette'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
   const ASSETS: AssetDef[] = [
@@ -97,63 +96,6 @@ export const AssetBrowser: React.FC<AssetBrowserProps> = ({
       icon: Shirt,
       apply: (p) => ({ ...p, outfit: 'hoodie', coatColor: '#18181b', innerColor: '#27272a', accentNeonColor: '#06b6d4' }),
       isEquipped: (p) => p.outfit === 'hoodie'
-    },
-
-    // Accessories & Headwear
-    {
-      id: 'acc-cat-ears',
-      name: 'Neko Cyber Cat Ears',
-      category: 'accessory',
-      description: 'Cute anime cat ear sensors with responsive directional audio micro-reactors.',
-      tags: ['Anime', 'Neko', 'Sensors'],
-      rarity: 'Common',
-      icon: Headphones,
-      apply: (p) => ({ ...p, accessory: 'cat_ears' }),
-      isEquipped: (p) => p.accessory === 'cat_ears'
-    },
-    {
-      id: 'acc-kitsune',
-      name: 'Kitsune Nine-Tail Fox Ears',
-      category: 'accessory',
-      description: 'Ethereal spirit fox ears infused with glowing red and gold flame energy.',
-      tags: ['Spirit', 'Fox', 'Kitsune'],
-      rarity: 'Legendary',
-      icon: Sparkles,
-      apply: (p) => ({ ...p, accessory: 'kitsune' }),
-      isEquipped: (p) => p.accessory === 'kitsune'
-    },
-    {
-      id: 'acc-elf-ears',
-      name: 'High Elf Elven Ears',
-      category: 'accessory',
-      description: 'Graceful elongated elven ears crafted for high-fantasy mage avatars.',
-      tags: ['Elf', 'Fantasy', 'Grace'],
-      rarity: 'Rare',
-      icon: Sparkles,
-      apply: (p) => ({ ...p, accessory: 'elf_ears' }),
-      isEquipped: (p) => p.accessory === 'elf_ears'
-    },
-    {
-      id: 'acc-horns',
-      name: 'Cyber Demon Horns',
-      category: 'accessory',
-      description: 'Obsidian synthetic horns with pulsator neon plasma conduits.',
-      tags: ['Demon', 'Cyber', 'Neon'],
-      rarity: 'Cyber',
-      icon: Zap,
-      apply: (p) => ({ ...p, accessory: 'cyber_horns', accentNeonColor: '#ef4444' }),
-      isEquipped: (p) => p.accessory === 'cyber_horns'
-    },
-    {
-      id: 'acc-headphones',
-      name: 'Aero-Sound Hi-Fi Headphones',
-      category: 'accessory',
-      description: 'Over-ear Studio DJ headphones with illuminated RGB earcups.',
-      tags: ['Audio', 'DJ', 'RGB'],
-      rarity: 'Common',
-      icon: Headphones,
-      apply: (p) => ({ ...p, accessory: 'headphones' }),
-      isEquipped: (p) => p.accessory === 'headphones'
     },
 
     // Hairstyles
@@ -339,7 +281,6 @@ export const AssetBrowser: React.FC<AssetBrowserProps> = ({
           {[
             { id: 'all', label: 'All Assets' },
             { id: 'outfit', label: 'Wardrobe' },
-            { id: 'accessory', label: 'Headwear / Ears' },
             { id: 'hairstyle', label: 'Hairstyles' },
             { id: 'palette', label: 'Color Themes' },
           ].map((tab) => (

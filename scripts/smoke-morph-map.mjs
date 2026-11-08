@@ -14,7 +14,6 @@
  * Exit: 0 when every assertion passes, 1 otherwise.
  */
 import * as THREE from 'three';
-import { ObjectLoader } from 'three';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -37,37 +36,7 @@ const approx = (a, b, eps = 1e-6) => Math.abs(a - b) < eps;
 const status = (map, id) => map.resolutions.find((r) => r.id === id)?.status;
 
 // ---------------------------------------------------------------------------
-// 1. Real kunoichi file through the real ObjectLoader path.
-// ---------------------------------------------------------------------------
-console.log('\n== kunoichi (real file, Object3D JSON) ==');
-{
-  const raw = JSON.parse(fs.readFileSync(path.join(root, 'public/assets/models/female_kunoichi.vrm'), 'utf8'));
-  const group = new ObjectLoader().parse(raw);
-  const map = inspectModel(group, null, 'female_kunoichi.vrm');
-  check(status(map, 'bustSize') === 'verified', 'bustSize verified');
-  check(status(map, 'headScale') === 'verified', 'headScale verified');
-  check(status(map, 'skinColor') === 'verified', 'skinColor verified');
-  check(status(map, 'legLength') === 'unavailable', 'legLength unavailable (unnamed cylinders)');
-  check(status(map, 'eyeSpacing') === 'unavailable', 'eyeSpacing unavailable (no left/right identity)');
-  check(status(map, 'expression') === 'unavailable', 'expression unavailable (no morphs)');
-  check(status(map, 'waistWidth') === 'unavailable', 'waistWidth unavailable');
-
-  const bust = group.getObjectByName('Bust_Group');
-  const head = group.getObjectByName('head');
-  const hips = group.getObjectByName('hips');
-  const params = { ...DEFAULT_AVATAR_PARAMS, bustSize: 1.5, headScale: 1.1, legLength: 1.3, waistWidth: 0.7 };
-  applyVerifiedMorphs(map, params);
-  check(approx(bust.scale.x, 1.5), 'bust group scaled to 1.5', `got ${bust.scale.x}`);
-  check(approx(head.scale.x, 1.1), 'head group scaled to 1.1', `got ${head.scale.x}`);
-  check(approx(hips.scale.x, 1), 'hips untouched by waist/leg values', `got ${hips.scale.x}`);
-  // Apply defaults again: absolute application must reset, never accumulate.
-  applyVerifiedMorphs(map, DEFAULT_AVATAR_PARAMS);
-  check(approx(bust.scale.x, 1), 'bust group resets to 1 on defaults');
-  check(approx(head.scale.x, 1), 'head group resets to 1 on defaults');
-}
-
-// ---------------------------------------------------------------------------
-// 2. Fake VRM with vessel's structure: bones, head morphs, exact materials.
+// 1. Fake VRM with vessel's structure: bones, head morphs, exact materials.
 // ---------------------------------------------------------------------------
 console.log('\n== vessel-like fake VRM (bones + morphs + materials) ==');
 {
@@ -216,7 +185,7 @@ if (failures > 0) process.exit(1);
 console.log('OK — morph map probe + apply behave with no cross-talk.');
 
 // ---------------------------------------------------------------------------
-// 3. Expression blends: the single source of truth for expressions.
+// 2. Expression blends: the single source of truth for expressions.
 //    Explicit expressionBlends win; a legacy single-choice `expression`
 //    (old presets) derives the blend; weights are clamped to 0–1.
 // ---------------------------------------------------------------------------

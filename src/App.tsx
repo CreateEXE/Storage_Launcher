@@ -359,8 +359,8 @@ export default function App() {
       initialW = isPhone ? Math.min(window.innerWidth - 16, 440) : 420;
       initialH = isPhone ? Math.min(window.innerHeight - 90, 540) : 520;
     } else if (type === 'avatar_editor') {
-      initialW = isPhone ? Math.min(window.innerWidth - 16, 360) : 340;
-      initialH = isPhone ? Math.min(window.innerHeight - 90, 520) : 500;
+      initialW = isPhone ? Math.min(window.innerWidth - 16, 320) : 300;
+      initialH = isPhone ? Math.min(window.innerHeight - 90, 460) : 440;
     } else if (type === 'asset_browser') {
       initialW = isPhone ? Math.min(window.innerWidth - 16, 440) : 480;
       initialH = isPhone ? Math.min(window.innerHeight - 90, 520) : 500;
@@ -494,9 +494,30 @@ export default function App() {
     });
   };
 
+  // Fullscreen toggle with an explicit restore: maximizing saves the
+  // window's current rect into prevRect; un-maximizing puts that exact
+  // rect back (not a default size). The rect fields themselves are never
+  // overwritten while maximized, so this holds even if a later change
+  // touches geometry mid-fullscreen.
   const toggleMaximizeWindow = (id: string) => {
     setWindows((prev) =>
-      prev.map((w) => (w.id === id ? { ...w, isMaximized: !w.isMaximized } : w))
+      prev.map((w) => {
+        if (w.id !== id) return w;
+        if (!w.isMaximized) {
+          return {
+            ...w,
+            isMaximized: true,
+            prevRect: { x: w.x, y: w.y, width: w.width, height: w.height },
+          };
+        }
+        const r = w.prevRect;
+        return {
+          ...w,
+          isMaximized: false,
+          ...(r ? { x: r.x, y: r.y, width: r.width, height: r.height } : {}),
+          prevRect: undefined,
+        };
+      })
     );
   };
 
@@ -527,6 +548,7 @@ export default function App() {
         ...w,
         isMinimized: false,
         isMaximized: false,
+        prevRect: undefined,
         x: Math.min(window.innerWidth - 300, 20 + idx * 25),
         y: Math.min(window.innerHeight - 300, 20 + idx * 25),
         zIndex: 20 + idx
@@ -551,6 +573,7 @@ export default function App() {
         return {
           ...win,
           isMaximized: false,
+          prevRect: undefined,
           x: isPhone ? 10 : 10 + idx * w,
           y: isPhone ? 10 + idx * h : 15,
           width: isPhone ? window.innerWidth - 20 : w - 8,
@@ -873,6 +896,7 @@ export default function App() {
               : undefined;
           openWindow('viewer_3d', { file: modelToOpen });
         }}
+        onOpenAvatarEditor={() => openWindow('avatar_editor')}
         onOpenInspector={() => openWindow('inspector', { file: selectedFile || files[0] })}
         onOpenTerminal={() => openWindow('terminal')}
         onOpenCustomizer={() => setIsCustomizerOpen(true)}

@@ -336,7 +336,7 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
     const isDefault = value === defaultValue;
     return (
       <div key={def.id} className="space-y-1">
-        <div className="flex justify-between items-center text-[10px] text-slate-400">
+        <div className="flex justify-between items-center text-[9px] text-slate-400">
           <span>
             {def.label}
             {st.status === 'verified' && <span className="text-emerald-400 ml-1" title={st.target}>✓</span>}
@@ -366,7 +366,7 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
                   (e.target as HTMLInputElement).blur();
                 }
               }}
-              className="w-16 bg-[#060a12] border border-[#172a45] rounded px-1 py-0.5 text-[10px] font-mono-code text-slate-200 text-right outline-none focus:border-[#38bdf8] disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-14 bg-[#060a12] border border-[#172a45] rounded px-1 py-0.5 text-[9px] font-mono-code text-slate-200 text-right outline-none focus:border-[#38bdf8] disabled:opacity-40 disabled:cursor-not-allowed"
               title={`Type a value (${def.min} – ${def.max})`}
             />
             <span className="font-mono-code text-slate-500">
@@ -421,7 +421,7 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
       : (safeParams as unknown as Record<string, string>)[def.id];
     return (
       <div key={def.id}>
-        <div className="text-[11px] font-semibold text-slate-300 mb-1.5">
+        <div className="text-[10px] font-semibold text-slate-300 mb-1.5">
           {def.label}
           {st.status === 'verified' && <span className="text-emerald-400 ml-1" title={st.target}>✓</span>}
         </div>
@@ -435,7 +435,7 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
                   ? handleExpressionChoice(choice.id as AvatarParameters['expression'])
                   : updateParam(def.id as keyof AvatarParameters, choice.id as never)
               }
-              className={`py-1.5 px-2 rounded text-[11px] font-medium border text-left flex items-center justify-between transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+              className={`py-1 px-1.5 rounded text-[10px] font-medium border text-left flex items-center justify-between transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                 current === choice.id
                   ? 'bg-[#0e3a6a] text-white border-[#38bdf8] shadow-[0_0_8px_rgba(56,189,248,0.3)]'
                   : 'bg-[#0b1220] text-slate-400 border-[#172a45] hover:text-white'
@@ -462,7 +462,7 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
     return (
       <div key={def.id} className="space-y-1.5">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-semibold text-slate-300">
+          <span className="text-[10px] font-semibold text-slate-300">
             {def.label}
             {st.status === 'verified' && <span className="text-emerald-400 ml-1" title={st.target}>✓</span>}
           </span>
@@ -483,7 +483,7 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
               disabled={st.status !== 'verified'}
               onClick={() => updateParam(def.id as keyof AvatarParameters, c as never)}
               style={{ backgroundColor: c }}
-              className={`w-6 h-6 rounded-full border transition-transform disabled:opacity-40 disabled:cursor-not-allowed ${
+              className={`w-5 h-5 rounded-full border transition-transform disabled:opacity-40 disabled:cursor-not-allowed ${
                 value === c ? 'scale-120 border-white ring-2 ring-[#38bdf8]' : 'border-white/20'
               }`}
             />
@@ -493,7 +493,7 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
             value={value}
             disabled={st.status !== 'verified'}
             onChange={(e) => updateParam(def.id as keyof AvatarParameters, e.target.value as never)}
-            className="w-6 h-6 rounded-full cursor-pointer bg-transparent border-0 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-5 h-5 rounded-full cursor-pointer bg-transparent border-0 disabled:opacity-40 disabled:cursor-not-allowed"
             title="Custom Color"
           />
         </div>
@@ -516,12 +516,12 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
     EDITOR_CONTROLS.filter((d) => d.section === section && d.kind === 'slider');
 
   return (
-    <div className="flex flex-col h-full bg-[#080c14] border border-[#172a45] rounded-sm overflow-hidden select-none text-xs">
+    <div className="flex flex-col h-full bg-[#080c14] border border-[#172a45] rounded-sm overflow-hidden select-none text-[11px]">
       {/* Header */}
-      <div className="h-8 bg-[#0b111e] border-b border-[#172a45] flex items-center justify-between px-2.5 shrink-0 z-10">
+      <div className="h-7 bg-[#0b111e] border-b border-[#172a45] flex items-center justify-between px-2 shrink-0 z-10">
         <div className="flex items-center space-x-1.5">
           <Sparkles className="w-3.5 h-3.5 text-[#38bdf8]" />
-          <span className="font-semibold text-slate-100 tracking-tight text-xs">
+          <span className="font-semibold text-slate-100 tracking-tight text-[11px]">
             VRM Avatar Editor
           </span>
           <span className="text-[9px] px-1.5 py-0.2 rounded bg-[#0e3a6a] text-[#38bdf8] font-mono-code border border-[#38bdf8]/40">
@@ -534,7 +534,7 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
           {onOpenAssetBrowser && (
             <button
               onClick={onOpenAssetBrowser}
-              className="px-2 py-0.5 rounded bg-[#0e3a6a] hover:bg-[#154c86] text-cyan-300 border border-[#38bdf8]/40 text-[10px] flex items-center gap-1 transition-colors font-medium mr-1"
+              className="px-1.5 py-0.5 rounded bg-[#0e3a6a] hover:bg-[#154c86] text-cyan-300 border border-[#38bdf8]/40 text-[9px] flex items-center gap-1 transition-colors font-medium mr-1"
               title="Open Asset Gallery Window"
             >
               <ShoppingBag className="w-3 h-3 text-[#38bdf8]" />
@@ -587,7 +587,7 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
       </div>
 
       {/* Category Pills */}
-      <div className="flex items-center bg-[#090e18] border-b border-[#172a45] p-1 gap-1 overflow-x-auto no-scrollbar shrink-0">
+      <div className="flex items-center bg-[#090e18] border-b border-[#172a45] p-0.5 gap-0.5 overflow-x-auto no-scrollbar shrink-0">
         {[
           { id: 'body', label: 'Body', icon: User },
           { id: 'face', label: 'Face', icon: Smile },
@@ -603,7 +603,7 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
             <button
               key={cat.id}
               onClick={() => setActiveCategory(cat.id as Category)}
-              className={`flex items-center gap-1 py-1 px-2 rounded text-[11px] font-medium transition-all shrink-0 ${
+              className={`flex items-center gap-1 py-0.5 px-1.5 rounded text-[10px] font-medium transition-all shrink-0 ${
                 isActive
                   ? 'bg-[#0e3a6a] text-white border border-[#38bdf8]/50 shadow-[0_0_8px_rgba(56,189,248,0.2)]'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-[#0f1729]'
@@ -617,7 +617,7 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
       </div>
 
       {/* Model verification banner */}
-      <div className="px-2.5 py-1.5 bg-[#090e18] border-b border-[#172a45] text-[10px] leading-relaxed shrink-0">
+      <div className="px-2 py-1 bg-[#090e18] border-b border-[#172a45] text-[9px] leading-relaxed shrink-0">
         {morphMap ? (
           <span className="text-slate-400">
             Model: <span className="text-slate-200 font-mono-code">{morphMap.modelName}</span> —{' '}
@@ -637,11 +637,11 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
       </div>
 
       {/* Body Content */}
-      <div className="flex-1 p-2.5 overflow-y-auto space-y-3 bg-[#070b13]">
+      <div className="flex-1 p-2 overflow-y-auto space-y-2.5 bg-[#070b13]">
         {/* BODY SLIDERS */}
         {activeCategory === 'body' && (
           <div className="space-y-2.5">
-            <div className="text-[11px] font-semibold text-slate-300 flex items-center justify-between">
+            <div className="text-[10px] font-semibold text-slate-300 flex items-center justify-between">
               <span>Proportions — verified targets only</span>
               <span className="font-mono-code text-[#38bdf8] text-[10px]">
                 {(safeParams.height * 160).toFixed(0)} cm
@@ -662,14 +662,14 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
                 each other. Face sliders always win on the morphs they
                 drive. */}
             <div className="space-y-2 pt-2 border-t border-[#172a45]">
-              <div className="text-[11px] font-semibold text-slate-300">Expression Blend</div>
+              <div className="text-[10px] font-semibold text-slate-300">Expression Blend</div>
               {(['smile', 'wink', 'fierce', 'surprised'] as const).map((id) => {
                 const vrmName = EXPRESSION_VRM_NAME[id];
                 const st = statusOf('expression');
                 const weight = effectiveBlends[vrmName] ?? 0;
                 return (
                   <div key={id} className="space-y-1">
-                    <div className="flex justify-between items-center text-[10px] text-slate-400">
+                    <div className="flex justify-between items-center text-[9px] text-slate-400">
                       <span>{defById('expression').choices?.find((c) => c.id === id)?.label ?? id}</span>
                       <span className="font-mono-code text-slate-200">{weight.toFixed(2)}</span>
                     </div>
@@ -702,7 +702,7 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
               )}
             </div>
             <div className="space-y-2 pt-2 border-t border-[#172a45]">
-              <div className="text-[11px] font-semibold text-slate-300">Feature Scaling</div>
+              <div className="text-[10px] font-semibold text-slate-300">Feature Scaling</div>
               {slidersFor('face').map(renderSlider)}
             </div>
           </div>
@@ -728,19 +728,19 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
             {onOpenAssetBrowser && (
               <div
                 onClick={onOpenAssetBrowser}
-                className="p-2.5 rounded bg-gradient-to-r from-[#0c2340] to-[#0a182d] border border-[#38bdf8]/40 hover:border-[#38bdf8] cursor-pointer transition-all flex items-center justify-between group shadow-[0_0_12px_rgba(56,189,248,0.15)]"
+                className="p-2 rounded bg-gradient-to-r from-[#0c2340] to-[#0a182d] border border-[#38bdf8]/40 hover:border-[#38bdf8] cursor-pointer transition-all flex items-center justify-between group shadow-[0_0_12px_rgba(56,189,248,0.15)]"
               >
                 <div className="flex items-center space-x-2">
                   <div className="p-1.5 rounded bg-[#0e3a6a] text-[#38bdf8] border border-[#38bdf8]/40 group-hover:scale-105 transition-transform">
                     <ShoppingBag className="w-4 h-4" />
                   </div>
                   <div>
-                    <div className="font-semibold text-slate-100 text-[11px] flex items-center gap-1">
+                    <div className="font-semibold text-slate-100 text-[10px] flex items-center gap-1">
                       <span>Open Asset Gallery</span>
                       <Sparkles className="w-2.5 h-2.5 text-cyan-400" />
                     </div>
                     <div className="text-[9px] text-slate-400">
-                      Browse gallery of costumes, ears, horns, hairstyles & color themes
+                      Browse gallery of costumes, hairstyles & color themes
                     </div>
                   </div>
                 </div>
@@ -749,11 +749,8 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
             )}
 
             {renderChoiceGroup(defById('outfit'))}
-            <div className="pt-2 border-t border-[#172a45]">
-              {renderChoiceGroup(defById('accessory'))}
-            </div>
             <div className="space-y-2 pt-2 border-t border-[#172a45]">
-              <div className="text-[11px] font-semibold text-slate-300">Outfit Shading</div>
+              <div className="text-[10px] font-semibold text-slate-300">Outfit Shading</div>
               <div className="grid grid-cols-2 gap-2 text-[10px]">
                 {(['coatColor', 'innerColor', 'bootsColor', 'accentNeonColor'] as const).map((id) => {
                   const st = statusOf(id);
@@ -801,7 +798,7 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
         {/* PRESETS & SAVE */}
         {activeCategory === 'presets' && (
           <div className="space-y-3">
-            <div className="text-[11px] font-semibold text-slate-300">Archetype Presets</div>
+            <div className="text-[10px] font-semibold text-slate-300">Archetype Presets</div>
             <div className="space-y-1.5">
               {AVATAR_PRESETS.map((preset) => (
                 <div
@@ -829,7 +826,7 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
 
             {/* My saved presets */}
             <div className="pt-2 border-t border-[#172a45]">
-              <div className="text-[11px] font-semibold text-slate-300 mb-1.5 flex items-center gap-1">
+              <div className="text-[10px] font-semibold text-slate-300 mb-1.5 flex items-center gap-1">
                 <FolderOpen className="w-3 h-3 text-[#38bdf8]" /> My Saved Presets
               </div>
               {savedPresets.length === 0 ? (
@@ -900,7 +897,7 @@ export const AvatarEditor: React.FC<AvatarEditorProps> = ({
         {/* MAPPING — verified vs disabled, per control */}
         {activeCategory === 'mapping' && (
           <div className="space-y-3">
-            <div className="text-[11px] font-semibold text-slate-300 flex items-center gap-1">
+            <div className="text-[10px] font-semibold text-slate-300 flex items-center gap-1">
               <ListChecks className="w-3 h-3 text-[#38bdf8]" />
               <span>Verified Morph Map</span>
             </div>

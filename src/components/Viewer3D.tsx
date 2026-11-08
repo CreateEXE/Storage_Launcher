@@ -231,143 +231,6 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
   // map (services/vrmMorphMap.ts), which binds each color to the exact
   // material name(s) verified on the loaded model. See applyAvatarParametersToVrm.
 
-  // Procedurally attaches 3D accessories (ears, horns, headphones) to the model head bone
-  const update3DAccessories = useCallback((vrm: VRM | null, rootScene: THREE.Group | null, params: AvatarParameters) => {
-    try {
-      const targetRoot = vrm ? vrm.scene : rootScene;
-      if (!targetRoot) return;
-
-      // Find existing accessory group or head bone
-      let headBone: THREE.Object3D | null = null;
-      if (vrm && vrm.humanoid) {
-        try {
-          if (typeof vrm.humanoid.getRawBoneNode === 'function') {
-            headBone = vrm.humanoid.getRawBoneNode('head');
-          }
-          if (!headBone && typeof vrm.humanoid.getNormalizedBoneNode === 'function') {
-            headBone = vrm.humanoid.getNormalizedBoneNode('head');
-          }
-        } catch {}
-      }
-
-      if (!headBone) {
-        targetRoot.traverse((obj) => {
-          if (!headBone && (obj.name.toLowerCase().includes('head') || obj.name.toLowerCase().includes('neck'))) {
-            headBone = obj;
-          }
-        });
-      }
-
-      const attachParent = headBone || targetRoot;
-
-      // Remove previous procedural accessory group
-      const existingAcc = attachParent.getObjectByName('PROCEDURAL_ACCESSORY_GROUP');
-      if (existingAcc) {
-        attachParent.remove(existingAcc);
-      }
-
-      if (params.accessory === 'none' || !params.accessory) return;
-
-      const accGroup = new THREE.Group();
-      accGroup.name = 'PROCEDURAL_ACCESSORY_GROUP';
-
-      const scale = params.earSize || 1.0;
-      const neonMat = new THREE.MeshStandardMaterial({
-        color: new THREE.Color(params.accentNeonColor),
-        emissive: new THREE.Color(params.accentNeonColor),
-        emissiveIntensity: 0.8,
-        roughness: 0.2,
-        metalness: 0.8
-      });
-
-      const hairMat = new THREE.MeshStandardMaterial({
-        color: new THREE.Color(params.hairColor),
-        roughness: 0.5
-      });
-
-      if (params.accessory === 'cat_ears') {
-        const earGeo = new THREE.ConeGeometry(0.06 * scale, 0.16 * scale, 4);
-        const leftEar = new THREE.Mesh(earGeo, hairMat);
-        leftEar.position.set(0.09 * scale, 0.22 * scale, 0.02);
-        leftEar.rotation.z = -0.2;
-
-        const rightEar = new THREE.Mesh(earGeo, hairMat);
-        rightEar.position.set(-0.09 * scale, 0.22 * scale, 0.02);
-        rightEar.rotation.z = 0.2;
-
-        accGroup.add(leftEar);
-        accGroup.add(rightEar);
-      } else if (params.accessory === 'kitsune') {
-        const earGeo = new THREE.ConeGeometry(0.08 * scale, 0.22 * scale, 5);
-        const leftEar = new THREE.Mesh(earGeo, hairMat);
-        leftEar.position.set(0.12 * scale, 0.25 * scale, 0.01);
-        leftEar.rotation.z = -0.35;
-
-        const rightEar = new THREE.Mesh(earGeo, hairMat);
-        rightEar.position.set(-0.12 * scale, 0.25 * scale, 0.01);
-        rightEar.rotation.z = 0.35;
-
-        accGroup.add(leftEar);
-        accGroup.add(rightEar);
-      } else if (params.accessory === 'elf_ears') {
-        const earGeo = new THREE.ConeGeometry(0.04 * scale, 0.18 * scale, 4);
-        const leftEar = new THREE.Mesh(earGeo, neonMat);
-        leftEar.position.set(0.13 * scale, 0.05, -0.02);
-        leftEar.rotation.z = -1.2;
-
-        const rightEar = new THREE.Mesh(earGeo, neonMat);
-        rightEar.position.set(-0.13 * scale, 0.05, -0.02);
-        rightEar.rotation.z = 1.2;
-
-        accGroup.add(leftEar);
-        accGroup.add(rightEar);
-      } else if (params.accessory === 'cyber_horns') {
-        const hornGeo = new THREE.ConeGeometry(0.035 * scale, 0.24 * scale, 6);
-        const leftHorn = new THREE.Mesh(hornGeo, neonMat);
-        leftHorn.position.set(0.08 * scale, 0.22 * scale, 0.06);
-        leftHorn.rotation.x = -0.3;
-        leftHorn.rotation.z = -0.2;
-
-        const rightHorn = new THREE.Mesh(hornGeo, neonMat);
-        rightHorn.position.set(-0.08 * scale, 0.22 * scale, 0.06);
-        rightHorn.rotation.x = -0.3;
-        rightHorn.rotation.z = 0.2;
-
-        accGroup.add(leftHorn);
-        accGroup.add(rightHorn);
-      } else if (params.accessory === 'headphones') {
-        const bandGeo = new THREE.TorusGeometry(0.15 * scale, 0.015, 8, 24, Math.PI);
-        const band = new THREE.Mesh(bandGeo, neonMat);
-        band.position.set(0, 0.18 * scale, 0);
-        band.rotation.x = Math.PI / 2;
-
-        const cupGeo = new THREE.CylinderGeometry(0.05 * scale, 0.05 * scale, 0.03, 16);
-        const leftCup = new THREE.Mesh(cupGeo, neonMat);
-        leftCup.position.set(0.14 * scale, 0.04, 0);
-        leftCup.rotation.z = Math.PI / 2;
-
-        const rightCup = new THREE.Mesh(cupGeo, neonMat);
-        rightCup.position.set(-0.14 * scale, 0.04, 0);
-        rightCup.rotation.z = Math.PI / 2;
-
-        accGroup.add(band);
-        accGroup.add(leftCup);
-        accGroup.add(rightCup);
-      }
-
-      // Accessories follow the head size: the group sits on the head bone,
-      // so it inherits the head bone transform, but headScale only scales
-      // the head *mesh* — the group itself must be scaled by the same
-      // factor or the ears/horns stay sized for the old head.
-      const headFactor = Math.min(1.2, Math.max(0.85, params.headScale || 1.0));
-      accGroup.scale.setScalar(headFactor);
-
-      attachParent.add(accGroup);
-    } catch (err) {
-      console.warn('3D Accessory attachment warning:', err);
-    }
-  }, []);
-
   // Hair follows the head size. The verified morph map scales only the
   // head mesh for headScale (hair is a separate mesh), so the viewer scales
   // the hair meshes by the same factor. This runs ONLY when headScale was
@@ -427,11 +290,6 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
         // Hair follows the head size (see applyHeadFollowers).
         applyHeadFollowers(targetRoot, params);
 
-        // Procedural accessories (ears / horns / headphones) attach to the
-        // head bone/group and are scaled by earSize. They are additions,
-        // not morphs of the model itself.
-        update3DAccessories(vrm, gltfGroup, params);
-
         // Expressions — single source of truth, same apply pass as the
         // face sliders. The old code zeroed every preset and set one to
         // full weight here, while the expressions bar wrote presets
@@ -481,7 +339,7 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
         console.warn('Apply params warning:', err);
       }
     },
-    [update3DAccessories, applyHeadFollowers]
+    [applyHeadFollowers]
   );
 
   useEffect(() => {
@@ -1351,8 +1209,8 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
       </div>
 
       {/* Toolbar Sub-Header */}
-      <div className="h-7 bg-[#060b14] border-b border-[#1e293b] flex items-center justify-between px-3 z-10 shrink-0 text-[11px]">
-        <div className="flex items-center space-x-2">
+      <div className="h-7 bg-[#060b14] border-b border-[#1e293b] flex items-center justify-between gap-2 px-3 z-10 shrink-0 text-[11px] overflow-x-auto no-scrollbar whitespace-nowrap">
+        <div className="flex items-center space-x-2 shrink-0">
           <button
             onClick={() => fileInputRef.current?.click()}
             className="px-2.5 py-0.5 rounded bg-[#091b30] hover:bg-[#0f2a4a] text-cyan-200 border border-[#38bdf8]/50 text-[10px] flex items-center gap-1 transition-all font-semibold shadow-[0_0_10px_rgba(56,189,248,0.2)]"
@@ -1388,7 +1246,7 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
           )}
         </div>
 
-        <div className="flex items-center space-x-1.5">
+        <div className="flex items-center space-x-1.5 shrink-0">
           {modelLoaded && (
             <button
               onClick={() => setShowExpressionsPanel(!showExpressionsPanel)}
@@ -1462,7 +1320,7 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
             </button>
           )}
 
-          {onOpenAvatarEditor && modelLoaded && (
+          {onOpenAvatarEditor && (
             <button
               onClick={onOpenAvatarEditor}
               className="px-2.5 py-0.5 rounded bg-[#091b30] hover:bg-[#0f2a4a] text-white border border-[#38bdf8]/50 text-[10px] flex items-center gap-1 transition-all font-semibold shadow-[0_0_8px_rgba(56,189,248,0.2)]"
@@ -1664,15 +1522,6 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
                     className="px-3 py-1.5 rounded-lg bg-[#0b1b30] hover:bg-[#122a4a] text-cyan-200 border border-cyan-500/50 text-[11px] font-semibold text-left"
                   >
                     Vessel — Seed-san (real VRM 1.0, fully morphable)
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      loadModelFromUrl('/assets/models/female_kunoichi.vrm', 'female_kunoichi.vrm');
-                    }}
-                    className="px-3 py-1.5 rounded-lg bg-[#0b1b30] hover:bg-[#122a4a] text-cyan-200 border border-cyan-500/50 text-[11px] font-semibold text-left"
-                  >
-                    Kunoichi — procedural parts (colors + head/bust only)
                   </button>
                 </div>
               </div>

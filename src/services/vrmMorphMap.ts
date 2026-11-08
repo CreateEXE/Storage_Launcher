@@ -66,17 +66,15 @@
  * (12 primitives) covering body + outfit together — there is no separate
  * bust / waist / hip mesh section to scale.
  *
- * female_kunoichi.vrm — NOT a VRM at all. It is a THREE.Object3D JSON dump
- * (generator "Object3D.toJSON"). It has named groups hips / spine / chest /
- * neck / head, empty leftEye / rightEye groups, a Head_Mesh_Group
- * (Face_Skin_Mesh, eye whites, eyeIrisLeft/Right, hair assembly), a
- * Bust_Group, and three unnamed Suit cylinders under chest / spine / hips.
- * It has NO morphs, NO skinning, NO expressions, and — critically — EVERY
- * object matrix in the file is the identity matrix, so every part is stored
- * at the origin, overlapping. The limb cylinders are unnamed and cannot be
- * told apart as arm vs leg. Only group-isolated targets (head group,
- * Bust_Group) and material-name targets (Skin / Hair / Eye_Iris / Suit /
- * NeonAccent) are verifiable on this file.
+ * female_kunoichi.vrm — REMOVED (2026-11-07). It was not a VRM at all
+ * but a THREE.Object3D JSON dump of unnamed cylinders, every part stored
+ * at the origin (all matrices identity) so the parts overlapped instead of
+ * forming a posed body — a blocky procedural placeholder. The file, its
+ * generator scripts, its load button, and every claim / resolution for it
+ * were deleted with the procedural accessories; only the real VRM 1.0
+ * (vessel.vrm) remains bundled. The runtime probe below is still generic:
+ * a user-loaded .glb/.obj/.json still resolves through the same
+ * bone / group / mesh / material paths.
  */
 import * as THREE from 'three';
 import type { VRM } from '@pixiv/three-vrm';
@@ -118,7 +116,6 @@ export const EDITOR_CONTROLS: MorphControlDef[] = [
   { id: 'browRaise', label: 'Brow Raise', section: 'face', kind: 'slider', min: -1, max: 1, step: 0.05 },
   { id: 'mouthOpen', label: 'Mouth Open', section: 'face', kind: 'slider', min: 0, max: 1, step: 0.05 },
   { id: 'chinWidth', label: 'Chin / Jaw Width', section: 'face', kind: 'slider', min: 0.8, max: 1.2, step: 0.01 },
-  { id: 'earSize', label: 'Accessory Size', section: 'face', kind: 'slider', min: 0.6, max: 1.5, step: 0.02 },
   { id: 'expression', label: 'Expression', section: 'face', kind: 'choice', choices: [
     { id: 'neutral', label: 'Neutral' },
     { id: 'smile', label: 'Smile' },
@@ -142,14 +139,6 @@ export const EDITOR_CONTROLS: MorphControlDef[] = [
     { id: 'school_uniform', label: 'Custom Cast Uniform' },
     { id: 'combat_suit', label: 'Vanguard Exosuit' },
     { id: 'hoodie', label: 'Street Tech Hoodie' },
-  ] },
-  { id: 'accessory', label: 'Headwear / Ears', section: 'outfit', kind: 'choice', choices: [
-    { id: 'cat_ears', label: 'Cat Ears' },
-    { id: 'kitsune', label: 'Fox Ears' },
-    { id: 'elf_ears', label: 'Elf Ears' },
-    { id: 'cyber_horns', label: 'Cyber Horns' },
-    { id: 'headphones', label: 'Headphones' },
-    { id: 'none', label: 'None' },
   ] },
   { id: 'coatColor', label: 'Outfit Color', section: 'outfit', kind: 'color' },
   { id: 'innerColor', label: 'Inner Top Color', section: 'outfit', kind: 'color' },
@@ -205,21 +194,6 @@ export const VERIFIED_CLAIMS: Array<{ model: string; control: string; kind: stri
   { model: 'vessel.vrm', control: 'expression', kind: 'expression', target: 'surprised', where: 'expression:surprised' },
   { model: 'vessel.vrm', control: 'expression', kind: 'expression', target: 'blink', where: 'expression:blink' },
   { model: 'vessel.vrm', control: 'expression', kind: 'expression', target: 'neutral', where: 'expression:neutral' },
-  { model: 'vessel.vrm', control: 'accessory', kind: 'bone', target: 'head', where: 'bone:head' },
-  { model: 'vessel.vrm', control: 'earSize', kind: 'bone', target: 'head', where: 'bone:head' },
-  { model: 'female_kunoichi.vrm', control: 'height', kind: 'root', target: 'scene root', where: 'root' },
-  { model: 'female_kunoichi.vrm', control: 'headScale', kind: 'group', target: 'head', where: 'group:head' },
-  { model: 'female_kunoichi.vrm', control: 'bustSize', kind: 'group', target: 'Bust_Group', where: 'group:Bust_Group' },
-  { model: 'female_kunoichi.vrm', control: 'eyeScale', kind: 'material', target: 'F00_000_Eye_White', where: 'material:F00_000_Eye_White' },
-  { model: 'female_kunoichi.vrm', control: 'eyeScale', kind: 'mesh', target: 'eyeIrisLeft', where: 'mesh:eyeIrisLeft' },
-  { model: 'female_kunoichi.vrm', control: 'eyeScale', kind: 'mesh', target: 'eyeIrisRight', where: 'mesh:eyeIrisRight' },
-  { model: 'female_kunoichi.vrm', control: 'skinColor', kind: 'material', target: 'F00_000_Skin', where: 'material:F00_000_Skin' },
-  { model: 'female_kunoichi.vrm', control: 'hairColor', kind: 'material', target: 'F00_000_Hair', where: 'material:F00_000_Hair' },
-  { model: 'female_kunoichi.vrm', control: 'eyeColor', kind: 'material', target: 'F00_000_Eye_Iris', where: 'material:F00_000_Eye_Iris' },
-  { model: 'female_kunoichi.vrm', control: 'accentNeonColor', kind: 'material', target: 'F00_000_NeonAccent', where: 'material:F00_000_NeonAccent' },
-  { model: 'female_kunoichi.vrm', control: 'coatColor', kind: 'material', target: 'F00_000_Suit', where: 'material:F00_000_Suit' },
-  { model: 'female_kunoichi.vrm', control: 'accessory', kind: 'group', target: 'head', where: 'group:head' },
-  { model: 'female_kunoichi.vrm', control: 'earSize', kind: 'group', target: 'head', where: 'group:head' },
 ];
 
 // Controls that were checked and deliberately NOT bound, with the reason.
@@ -236,29 +210,10 @@ export const UNAVAILABLE_CONTROLS: Array<{ model: string; control: string; reaso
   { model: 'vessel.vrm', control: 'innerColor', reason: 'No inner / shirt material on this model.' },
   { model: 'vessel.vrm', control: 'bootsColor', reason: 'No boots / shoes material on this model.' },
   { model: 'vessel.vrm', control: 'hairHighlightColor', reason: 'No hair-highlight material on this model.' },
-  { model: 'female_kunoichi.vrm', control: 'shoulderWidth', reason: 'No shoulder bones or shoulder groups on this model.' },
-  { model: 'female_kunoichi.vrm', control: 'waistWidth', reason: 'No waist group — the torso is a single unnamed cylinder, so there is no waist-only section.' },
-  { model: 'female_kunoichi.vrm', control: 'hipWidth', reason: 'The hips group is the root of the whole body — scaling it would scale everything.' },
-  { model: 'female_kunoichi.vrm', control: 'legLength', reason: 'Leg meshes are unnamed cylinders — a leg cannot be told apart from a torso cylinder.' },
-  { model: 'female_kunoichi.vrm', control: 'legThickness', reason: 'Leg meshes are unnamed cylinders — a leg cannot be told apart from a torso cylinder.' },
-  { model: 'female_kunoichi.vrm', control: 'armLength', reason: 'No arm groups or arm meshes on this model.' },
-  { model: 'female_kunoichi.vrm', control: 'armThickness', reason: 'No arm groups or arm meshes on this model.' },
-  { model: 'female_kunoichi.vrm', control: 'eyeSpacing', reason: 'Both eye meshes are stored at the origin with no left/right identity, so a spacing offset cannot be verified to move the correct eye.' },
-  { model: 'female_kunoichi.vrm', control: 'browRaise', reason: 'No morph targets on this model.' },
-  { model: 'female_kunoichi.vrm', control: 'mouthOpen', reason: 'No morph targets on this model.' },
-  { model: 'female_kunoichi.vrm', control: 'chinWidth', reason: 'No jaw or chin bone and no morph targets on this model.' },
-  { model: 'female_kunoichi.vrm', control: 'expression', reason: 'No expressions or morph targets on this model.' },
-  { model: 'female_kunoichi.vrm', control: 'hairstyle', reason: 'No alternate hairstyle meshes on this model.' },
-  { model: 'female_kunoichi.vrm', control: 'outfit', reason: 'No alternate outfit meshes on this model.' },
-  { model: 'female_kunoichi.vrm', control: 'innerColor', reason: 'No inner / shirt material on this model.' },
-  { model: 'female_kunoichi.vrm', control: 'bootsColor', reason: 'No boots / shoes material on this model.' },
-  { model: 'female_kunoichi.vrm', control: 'hairHighlightColor', reason: 'No hair-highlight material on this model.' },
 ];
 
 /** Per-model caveats that apply to the whole model, shown in the Mapping tab. */
 export const MODEL_NOTES: Record<string, string> = {
-  'female_kunoichi.vrm':
-    'This file is not a real VRM — it is a THREE.Object3D JSON dump, and every part in it is stored at the origin (all matrices are identity), so the parts overlap instead of forming a posed body. Only group-isolated targets (head, Bust_Group) and material colors are verifiable here.',
   'vessel.vrm':
     'Real VRM 1.0 (Seed-san). The body and outfit share one skinned "wear" mesh, so there is no separate bust / waist / hip section to morph — those sliders are disabled on purpose.',
 };
@@ -277,13 +232,6 @@ const MODEL_MATERIAL_ROLES: Record<string, Partial<Record<'skin' | 'hair' | 'eye
     accent: ['green_emit'],
     // No single outfit/coat material: the wear mesh mixes wear_metal,
     // backpack_*, glass, armgear_* and skin materials.
-  },
-  'female_kunoichi.vrm': {
-    skin: ['F00_000_Skin'],
-    hair: ['F00_000_Hair'],
-    eye: ['F00_000_Eye_Iris'],
-    accent: ['F00_000_NeonAccent'],
-    outfit: ['F00_000_Suit'],
   },
 };
 
@@ -824,24 +772,6 @@ export function inspectModel(root: THREE.Object3D, vrm: VRM | null, modelName: s
     unavailable('chinWidth', 'No jaw or chin bone and no morph targets on this model.');
   }
 
-  // -- Accessory size: the procedural accessory group is attached to the head
-  //    bone/group by the viewer; earSize only scales that group, never the
-  //    model itself. Verified whenever a head anchor exists.
-  {
-    const anchor = isVrm ? getBone('head') : getGroup('head');
-    if (anchor) {
-      verified(
-        'earSize',
-        `procedural accessory group attached to the ${isVrm ? "humanoid bone 'head'" : "group 'head'"}`,
-        'Scales the procedural ears / horns / headphones only — the model itself is untouched.',
-        // The viewer applies this when it rebuilds the accessory group.
-        () => {},
-      );
-    } else {
-      unavailable('earSize', 'No head bone or head group to attach accessories to.');
-    }
-  }
-
   // -- Expressions: only VRM expressions the model actually registers.
   if (isVrm && vrm?.expressionManager) {
     const wanted = ['neutral', 'smile', 'wink', 'fierce', 'surprised'];
@@ -886,22 +816,6 @@ export function inspectModel(root: THREE.Object3D, vrm: VRM | null, modelName: s
     'outfit',
     'This model ships with a single outfit mesh — there are no alternate outfits to swap to.',
   );
-
-  // -- Accessory choice: procedural, anchored to the head. Verified when the
-  //    head anchor exists (checked above for earSize).
-  {
-    const anchor = isVrm ? getBone('head') : getGroup('head');
-    if (anchor) {
-      verified(
-        'accessory',
-        `procedural accessory attached to the ${isVrm ? "humanoid bone 'head'" : "group 'head'"}`,
-        'Accessories are procedural meshes added to the head — they do not alter the model.',
-        () => {},
-      );
-    } else {
-      unavailable('accessory', 'No head bone or head group to attach accessories to.');
-    }
-  }
 
   // -- Colors (exact material-name match only — see header comment).
   resolveColorControl('skinColor', 'skin', 'skinColor', 'No skin material found on this model.');

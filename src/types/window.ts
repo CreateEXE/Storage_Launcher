@@ -26,6 +26,13 @@ export interface WindowNode {
   zIndex: number;
   isMinimized: boolean;
   isMaximized: boolean;
+  /**
+   * Geometry the window had before it was maximized (fullscreen). The
+   * maximize toggle saves it on the way in and restores it on the way
+   * out, so un-maximizing returns to the previous container size —
+   * never a default size, and never stuck fullscreen.
+   */
+  prevRect?: { x: number; y: number; width: number; height: number };
   file?: FileItem;
   payload?: any;
 }

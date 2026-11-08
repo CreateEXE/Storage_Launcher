@@ -8,15 +8,14 @@
  *
  *   1. It reads the claim tables out of src/services/vrmMorphMap.ts
  *      (VERIFIED_CLAIMS + UNAVAILABLE_CONTROLS) by parsing the source.
- *   2. It parses the actual model files — vessel.vrm (binary glTF + VRM
- *      extension) and female_kunoichi.vrm (THREE.Object3D JSON) — and
- *      checks every claim resolves in the real file: the bone exists in
- *      the humanoid map, the morph target exists on the named mesh, the
+ *   2. It parses the actual bundled model file — vessel.vrm (binary glTF
+ *      + VRM extension), the only bundled model since the blocky
+ *      procedural placeholder female_kunoichi.vrm was removed — and checks
+ *      every claim resolves in the real file: the bone exists in the
+ *      humanoid map, the morph target exists on the named mesh, the
  *      material exists, the group/mesh exists, the expression is registered.
  *   3. It also checks the negative facts the "unavailable" reasons rely on
- *      (e.g. vessel really has no bust/waist bone; kunoichi really has no
- *      morphs and all its matrices really are identity, i.e. its parts are
- *      stored unassembled at the origin).
+ *      (e.g. vessel really has no bust/waist bone).
  *
  * Run:  npm run verify:morph-map
  * Exit: 0 when every claim resolves, 1 otherwise.
@@ -87,42 +86,6 @@ for (const mesh of vMeshes) {
 }
 
 // ---------------------------------------------------------------------------
-// 2b. Parse female_kunoichi.vrm — THREE.Object3D JSON. Load it with three's
-//     ObjectLoader (headless) so the check sees what the app will see.
-// ---------------------------------------------------------------------------
-const kunoPath = path.join(root, 'public/assets/models/female_kunoichi.vrm');
-const kunoRaw = JSON.parse(fs.readFileSync(kunoPath, 'utf8'));
-const { ObjectLoader } = await import('three');
-const kunoScene = new ObjectLoader().parse(kunoRaw);
-const kunoObjects = new Map(); // name -> object(s)
-const kunoMaterials = new Set();
-const kunoMeshes = [];
-kunoScene.traverse((obj) => {
-  if (obj.name) {
-    if (!kunoObjects.has(obj.name)) kunoObjects.set(obj.name, []);
-    kunoObjects.get(obj.name).push(obj);
-  }
-  if (obj.isMesh) {
-    kunoMeshes.push(obj);
-    const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-    for (const m of mats) if (m?.name) kunoMaterials.add(m.name);
-  }
-});
-const kunoHasMorphs = kunoMeshes.some(
-  (m) => m.geometry?.morphAttributes && Object.keys(m.geometry.morphAttributes).length > 0,
-);
-// Every matrix in the file must be identity (parts stored at the origin).
-let kunoNonIdentity = 0;
-(function walk(o) {
-  const m = o.matrix?.elements;
-  if (m) {
-    const ident = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
-    if (!m.every((v, i) => v === ident[i])) kunoNonIdentity++;
-  }
-  for (const c of o.children || []) walk(c);
-})(kunoRaw.object);
-
-// ---------------------------------------------------------------------------
 // 3. Check every verified claim against the file it names.
 // ---------------------------------------------------------------------------
 const byModel = new Map();
@@ -166,28 +129,6 @@ function checkClaim(c) {
     }
     return check(false, `vessel.vrm :: ${c.control}: unknown claim kind '${c.kind}'`);
   }
-  if (c.model === 'female_kunoichi.vrm') {
-    if (c.kind === 'root') return check(true, '');
-    if (c.kind === 'group') {
-      return check(
-        kunoObjects.has(c.target),
-        `female_kunoichi.vrm :: ${c.control}: group '${c.target}' not found`,
-      );
-    }
-    if (c.kind === 'material') {
-      return check(
-        kunoMaterials.has(c.target),
-        `female_kunoichi.vrm :: ${c.control}: material '${c.target}' not found (has: ${[...kunoMaterials].join(', ')})`,
-      );
-    }
-    if (c.kind === 'mesh') {
-      return check(
-        kunoObjects.has(c.target),
-        `female_kunoichi.vrm :: ${c.control}: mesh '${c.target}' not found`,
-      );
-    }
-    return check(false, `female_kunoichi.vrm :: ${c.control}: unsupported claim kind '${c.kind}' for this file`);
-  }
   return check(false, `${c.model} :: ${c.control}: unknown model in claims`);
 }
 
@@ -208,20 +149,6 @@ check((vMorphsByMesh.get('head') || new Set()).size === 43, `vessel.vrm: head me
 // vessel: no morph named like eye spacing / chin.
 const headMorphs = vMorphsByMesh.get('head') || new Set();
 check(![...headMorphs].some((n) => /spacing|chin|jaw/i.test(n)), 'vessel.vrm: unexpected eye-spacing / chin morph on head mesh');
-// kunoichi: no morphs anywhere; all matrices identity; eye groups are empty.
-check(!kunoHasMorphs, 'female_kunoichi.vrm: expected NO morph targets, but some mesh has morphAttributes');
-check(kunoNonIdentity === 0, `female_kunoichi.vrm: expected ALL matrices to be identity, but ${kunoNonIdentity} are not`);
-for (const eyeGroup of ['leftEye', 'rightEye']) {
-  const objs = kunoObjects.get(eyeGroup) || [];
-  check(objs.length === 1, `female_kunoichi.vrm: expected one '${eyeGroup}' group, found ${objs.length}`);
-  if (objs.length === 1) {
-    check((objs[0].children || []).length === 0, `female_kunoichi.vrm: '${eyeGroup}' group is expected to be EMPTY (no eye meshes parented under it)`);
-  }
-}
-// kunoichi: the three limb/torso cylinders are unnamed (no section identity).
-const unnamedSuitCylinders = kunoMeshes.filter((m) => !m.name && m.material?.name === 'F00_000_Suit').length;
-check(unnamedSuitCylinders >= 3, `female_kunoichi.vrm: expected >=3 unnamed Suit meshes, found ${unnamedSuitCylinders}`);
-
 // ---------------------------------------------------------------------------
 // 5. Print the verified / unavailable table (what the editor will show).
 // ---------------------------------------------------------------------------
@@ -237,7 +164,7 @@ const statusFor = (model, control) => {
 };
 
 console.log('');
-for (const model of ['vessel.vrm', 'female_kunoichi.vrm']) {
+for (const model of ['vessel.vrm']) {
   console.log(`== ${model} ==`);
   let v = 0;
   let u = 0;
@@ -256,7 +183,6 @@ for (const model of ['vessel.vrm', 'female_kunoichi.vrm']) {
 }
 for (const n of notes) console.log(`note: ${n}`);
 console.log(`vessel.vrm: ${vBoneNames.size} humanoid bones, ${vMeshes.length} meshes, ${(vMorphsByMesh.get('head') || new Set()).size} head morphs, ${vMaterials.length} materials`);
-console.log(`female_kunoichi.vrm: ${kunoMeshes.length} meshes, morphs: ${kunoHasMorphs ? 'YES' : 'none'}, non-identity matrices: ${kunoNonIdentity}`);
 console.log(`claims checked: ${claims.length}, unavailable entries: ${unavailable.length}`);
 
 if (failures.length > 0) {
