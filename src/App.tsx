@@ -13,7 +13,6 @@ import { FileExplorer } from './components/FileExplorer';
 import { TerminalPanel } from './components/TerminalPanel';
 import { InspectorPanel } from './components/InspectorPanel';
 import { AvatarEditor } from './components/AvatarEditor';
-import { AssetBrowser } from './components/AssetBrowser';
 import { AnimationStudioWindow } from './components/AnimationStudioWindow';
 import { ColorPickerWindow } from './components/ColorPickerWindow';
 import { CodeEditorWindow } from './components/CodeEditorWindow';
@@ -386,9 +385,6 @@ export default function App() {
     } else if (type === 'avatar_editor') {
       initialW = isPhone ? Math.min(window.innerWidth - 16, 360) : 340;
       initialH = isPhone ? Math.min(window.innerHeight - 90, 520) : 500;
-    } else if (type === 'asset_browser') {
-      initialW = isPhone ? Math.min(window.innerWidth - 16, 440) : 480;
-      initialH = isPhone ? Math.min(window.innerHeight - 90, 520) : 500;
     } else if (type === 'color_picker') {
       initialW = isPhone ? Math.min(window.innerWidth - 16, 320) : 300;
       initialH = isPhone ? Math.min(window.innerHeight - 90, 400) : 380;
@@ -458,8 +454,6 @@ export default function App() {
         return `3D Viewer: ${file?.name || 'Load Avatar'}`;
       case 'avatar_editor':
         return `Avatar Morph: ${file?.name || 'Avatar Studio'}`;
-      case 'asset_browser':
-        return 'VRM Asset & Outfit Gallery';
       case 'animation_studio':
         return 'Animation Studio & Timeline';
       case 'color_picker':
@@ -809,21 +803,6 @@ export default function App() {
                       payload: { targetProp }
                     })
                   }
-                  onOpenAssetBrowser={() =>
-                    openWindow('asset_browser', {
-                      parentId: win.id,
-                      title: 'VRM Asset & Outfit Gallery'
-                    })
-                  }
-                />
-              )}
-
-              {/* 4. VRM Asset & Outfit Gallery (Child of Avatar Editor) */}
-              {win.type === 'asset_browser' && (
-                <AssetBrowser
-                  params={avatarParams}
-                  onChange={setAvatarParams}
-                  onClose={() => closeWindow(win.id)}
                 />
               )}
 

@@ -1,32 +1,24 @@
 export interface AvatarParameters {
-  // Body Morph Sliders
-  height: number;          // 0.8 to 1.25
-  headScale: number;       // 0.85 to 1.2
-  bustSize: number;        // 0.6 to 1.6
-  shoulderWidth: number;   // 0.8 to 1.3
-  waistWidth: number;      // 0.7 to 1.3
-  hipWidth: number;        // 0.8 to 1.4
-  legLength: number;       // 0.8 to 1.3
-  armThickness: number;    // 0.8 to 1.3
+  // Body Morph Sliders — every one of these is verified to drive the model.
+  // Anything without a verified effect was removed, not left disabled.
+  height: number;          // 0.8 to 1.25 — uniform root scale, anchored at the feet
+  headScale: number;       // 0.85 to 1.2 — head only (counter-scaled against chest/hips)
+  bustSize: number;        // 0.6 to 1.6 — chest depth only (head/arms counter-scaled)
+  shoulderWidth: number;   // 0.8 to 1.3 — chest width only
+  waistWidth: number;      // 0.7 to 1.3 — spine band only (chest/head/arms counter-scaled)
+  hipWidth: number;        // 0.8 to 1.4 — hips band only (everything above counter-scaled)
+  legLength: number;       // 0.8 to 1.3 — whole-leg length, feet stay on the floor
+  armThickness: number;    // 0.8 to 1.3 — upper/lower arm width only
+  weight: number;          // 0.8 to 1.4 — mesh deformation only, skeleton untouched (1.0 = original mesh)
 
-  // Face Sliders
-  eyeScale: number;        // 0.7 to 1.4
-  eyeSpacing: number;      // -0.03 to 0.03
-  chinWidth: number;       // 0.8 to 1.2
-
-  // Colors
+  // Colors — each one recolours a real material on the loaded model.
+  // Coat/inner/boots/neon colors were removed: no material on the model
+  // matches them, so they did nothing. Hair highlight was never read.
   skinColor: string;
   hairColor: string;
-  hairHighlightColor: string;
   eyeColor: string;
-  coatColor: string;
-  innerColor: string;
-  accentNeonColor: string;
-  bootsColor: string;
 
   // Selections
-  hairstyle: 'twintails' | 'bobcut' | 'longwaves' | 'spiky' | 'ponytail' | 'short';
-  outfit: 'cyber_jacket' | 'mmo_tunic' | 'school_uniform' | 'combat_suit' | 'hoodie';
   expression: 'neutral' | 'smile' | 'wink' | 'fierce' | 'surprised';
 }
 
@@ -39,22 +31,12 @@ export const DEFAULT_AVATAR_PARAMS: AvatarParameters = {
   hipWidth: 1.0,
   legLength: 1.0,
   armThickness: 1.0,
-
-  eyeScale: 1.0,
-  eyeSpacing: 0.0,
-  chinWidth: 1.0,
+  weight: 1.0,
 
   skinColor: '#ffe0bd',
   hairColor: '#6bb5f8',
-  hairHighlightColor: '#a5f3fc',
   eyeColor: '#1d4ed8',
-  coatColor: '#121b2d',
-  innerColor: '#f1f5f9',
-  accentNeonColor: '#38bdf8',
-  bootsColor: '#0f172a',
 
-  hairstyle: 'twintails',
-  outfit: 'cyber_jacket',
   expression: 'neutral'
 };
 
@@ -77,7 +59,7 @@ export const AVATAR_PRESETS: AvatarPreset[] = [
   {
     id: 'alchemia-mage',
     name: 'Alchemia Sorceress',
-    desc: 'Fantasy MMO alchemist with elf ears and mystic robes',
+    desc: 'Fantasy MMO alchemist with mystic robes',
     origin: 'Alchemia Story',
     params: {
       ...DEFAULT_AVATAR_PARAMS,
@@ -86,14 +68,7 @@ export const AVATAR_PRESETS: AvatarPreset[] = [
       bustSize: 0.9,
       skinColor: '#fff1e6',
       hairColor: '#c084fc',
-      hairHighlightColor: '#f472b6',
       eyeColor: '#9333ea',
-      coatColor: '#3b0764',
-      innerColor: '#fae8ff',
-      accentNeonColor: '#e879f9',
-      bootsColor: '#2e1065',
-      hairstyle: 'longwaves',
-      outfit: 'mmo_tunic',
       expression: 'smile'
     }
   },
@@ -109,21 +84,14 @@ export const AVATAR_PRESETS: AvatarPreset[] = [
       bustSize: 1.15,
       skinColor: '#ffd8be',
       hairColor: '#f472b6',
-      hairHighlightColor: '#fbcfe8',
       eyeColor: '#ec4899',
-      coatColor: '#1e1b4b',
-      innerColor: '#ffffff',
-      accentNeonColor: '#fb7185',
-      bootsColor: '#312e81',
-      hairstyle: 'twintails',
-      outfit: 'school_uniform',
       expression: 'wink'
     }
   },
   {
     id: 'cyber-striker',
     name: 'Chimera Striker',
-    desc: 'Armored combat spec with cyber horns and neon emerald glow',
+    desc: 'Armored combat spec with emerald glow',
     origin: 'Termux Native',
     params: {
       ...DEFAULT_AVATAR_PARAMS,
@@ -135,14 +103,7 @@ export const AVATAR_PRESETS: AvatarPreset[] = [
       legLength: 1.15,
       skinColor: '#f8d5ba',
       hairColor: '#0284c7',
-      hairHighlightColor: '#38bdf8',
       eyeColor: '#10b981',
-      coatColor: '#0f172a',
-      innerColor: '#020617',
-      accentNeonColor: '#22c55e',
-      bootsColor: '#020617',
-      hairstyle: 'spiky',
-      outfit: 'combat_suit',
       expression: 'fierce'
     }
   },
@@ -161,19 +122,9 @@ export const AVATAR_PRESETS: AvatarPreset[] = [
       hipWidth: 1.35,
       legLength: 1.10,
       armThickness: 0.90,
-      eyeScale: 0.88,
-      eyeSpacing: -0.005,
-      chinWidth: 0.92,
       skinColor: '#fceade',
       hairColor: '#111827',
-      hairHighlightColor: '#374151',
       eyeColor: '#10b981',
-      coatColor: '#090d16',
-      innerColor: '#1f2937',
-      accentNeonColor: '#059669',
-      bootsColor: '#030712',
-      hairstyle: 'ponytail',
-      outfit: 'combat_suit',
       expression: 'fierce'
     }
   }

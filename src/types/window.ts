@@ -8,8 +8,7 @@ export type WindowType =
   | 'file_explorer'
   | 'terminal'
   | 'inspector'
-  | 'code_editor'
-  | 'asset_browser';
+  | 'code_editor';
 
 export interface WindowNode {
   id: string;
