@@ -21,7 +21,16 @@ import java.util.Locale
 
 class SafStorageBridge(
     private val activity: Activity,
-    private val webView: WebView
+    private val webView: WebView,
+    // UI-thread-cached current page URL, supplied by MainActivity.
+    // @JavascriptInterface methods run on the WebView's JavaBridge thread,
+    // and WebView.getUrl() calls checkThread() and throws
+    // IllegalStateException off the UI thread (AOSP WebView.java). The
+    // previous code wrapped webView.url in try/catch, so the origin check
+    // silently failed on EVERY call and the whole SAF bridge was dead
+    // (hasPersistedPermission always false) without any visible error.
+    // Reading the cached URL instead makes the check actually work.
+    private val currentPageUrl: () -> String?
 ) {
 
     companion object {
@@ -44,14 +53,16 @@ class SafStorageBridge(
     // origin check, not a cryptographic token, and SAF itself still only
     // exposes the user-granted persisted tree.
     private fun isTrustedOrigin(): Boolean {
-        val url = try { webView.url } catch (e: Exception) { null }
+        // Reads the UI-thread-cached page URL only — never webView.url
+        // (throws off the UI thread; see the constructor comment).
+        val url = try { currentPageUrl() } catch (e: Exception) { null }
         return url != null && (url.startsWith("file:///android_asset/")
                 || url.startsWith(MainActivity.APP_ORIGIN))
     }
 
     private fun checkTrusted(): Boolean {
         if (!isTrustedOrigin()) {
-            Log.w(TAG, "Blocked SafStorage call from untrusted origin: ${try { webView.url } catch (e: Exception) { null }}")
+            Log.w(TAG, "Blocked SafStorage call from untrusted origin: ${try { currentPageUrl() } catch (e: Exception) { null }}")
             return false
         }
         return true

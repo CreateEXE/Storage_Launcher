@@ -75,17 +75,45 @@ public class MainActivity extends AppCompatActivity {
     // This is an origin check, not a cryptographic auth token; it stops the
     // reported hole (any loaded web content using the bridges) but any code
     // running inside the bundled app page itself is still trusted.
+    //
+    // The check MUST NOT read the URL from the WebView here.
+    // @JavascriptInterface methods run on the WebView's JavaBridge thread,
+    // not the UI thread, and WebView.getUrl() calls checkThread() and
+    // throws IllegalStateException when invoked off the UI thread (AOSP
+    // WebView.java: getUrl() -> checkThread()). That threw out of
+    // getStorageRootPath() — the first bridge call at startup — as
+    // "Java exception was raised during method invocation", which the JS
+    // side surfaced as the SYSTEM RECOVERY SHIELD on every launch. The
+    // same latent bug made SafStorageBridge's origin check silently fail
+    // on every call (it caught the exception and returned false), so the
+    // SAF bridge was dead without any visible error. Instead the current
+    // page URL is cached in currentPageUrl on the UI thread (set before
+    // loadUrl, updated in onPageStarted) and the check reads that field
+    // only. Never call a WebView method from a bridge method.
+    private volatile String currentPageUrl;
+
+    // Package-visible for SafStorageBridge: it must use the same cached
+    // URL for the same reason (its own webView.url reads threw too, just
+    // silently, because they were wrapped in try/catch).
+    String getCurrentPageUrl() {
+        return currentPageUrl;
+    }
+
     private boolean isTrustedOrigin() {
-        if (webView == null) return false;
-        String url = webView.getUrl();
-        return url != null && (url.startsWith("file:///android_asset/")
-                || url.startsWith(APP_ORIGIN));
+        try {
+            String url = currentPageUrl;
+            return url != null && (url.startsWith("file:///android_asset/")
+                    || url.startsWith(APP_ORIGIN));
+        } catch (Exception e) {
+            Log.e(TAG, "Error checking trusted origin", e);
+            return false;
+        }
     }
 
     private boolean checkTrusted() {
         if (!isTrustedOrigin()) {
             Log.w(TAG, "Blocked JavascriptInterface call from untrusted origin: "
-                    + (webView != null ? webView.getUrl() : null));
+                    + currentPageUrl);
             return false;
         }
         return true;
@@ -156,12 +184,29 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public String getStorageRootPath() {
-            if (!checkTrusted()) return "";
-            File external = Environment.getExternalStorageDirectory();
-            if (external != null && external.exists()) {
-                return external.getAbsolutePath();
+            // A bridge method called at startup must never throw into the
+            // JS layer: an exception here aborts the FileManagerService
+            // constructor during the first render and the app lands on the
+            // SYSTEM RECOVERY SHIELD. checkTrusted() no longer touches the
+            // WebView (see above), but this method is still guarded so a
+            // future failure degrades to the app-private files dir — or ""
+            // — instead of crashing the launch.
+            try {
+                if (!checkTrusted()) return "";
+                File external = Environment.getExternalStorageDirectory();
+                if (external != null && external.exists()) {
+                    return external.getAbsolutePath();
+                }
+                return getFilesDir().getAbsolutePath();
+            } catch (Exception e) {
+                Log.e(TAG, "Error getting storage root path", e);
+                try {
+                    return getFilesDir().getAbsolutePath();
+                } catch (Exception e2) {
+                    Log.e(TAG, "Error getting app files dir as storage fallback", e2);
+                    return "";
+                }
             }
-            return getFilesDir().getAbsolutePath();
         }
 
         @JavascriptInterface
@@ -464,7 +509,10 @@ public class MainActivity extends AppCompatActivity {
                     + WebViewAssetLoader.DEFAULT_DOMAIN);
 
             // Expose Native Android Storage & SAF Kotlin Bridges
-            safStorageBridge = new SafStorageBridge(this, webView);
+            // SafStorageBridge gets the cached page URL (this::getCurrentPageUrl)
+            // for its origin check — it must not read webView.url from the
+            // JavaBridge thread either (see isTrustedOrigin above).
+            safStorageBridge = new SafStorageBridge(this, webView, this::getCurrentPageUrl);
             webView.addJavascriptInterface(new AndroidStorageBridge(), "AndroidStorage");
             webView.addJavascriptInterface(safStorageBridge, "SafStorage");
 
@@ -530,6 +578,10 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
                     super.onPageStarted(view, url, favicon);
+                    // UI-thread callback: keep the cached page URL current
+                    // for the bridge origin checks (they run on the
+                    // JavaBridge thread and must never call WebView.getUrl()).
+                    currentPageUrl = url;
                     if (url != null && url.startsWith(APP_ORIGIN)) {
                         loadErrorShown = false;
                     }
@@ -642,6 +694,10 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
 
+            // Cache the page URL before loading it: bridge origin checks
+            // read this field (UI thread) instead of WebView.getUrl()
+            // (which throws off the UI thread — see isTrustedOrigin).
+            currentPageUrl = APP_URL;
             webView.loadUrl(APP_URL);
         } catch (Exception e) {
             Log.e(TAG, "Fatal error initializing MainActivity WebView", e);
